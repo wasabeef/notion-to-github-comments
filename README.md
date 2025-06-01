@@ -120,6 +120,8 @@ This PR implements the new user authentication flow.
 
 The action will create a comment like:
 
+<img width="919" alt="Screenshot 2025-06-01 at 16 38 14" src="https://github.com/user-attachments/assets/19009bcf-7e19-4746-965b-fa606472bcf1" />
+
 ````markdown
 ### 🤖 Notion Context (2 link(s) processed)
 
