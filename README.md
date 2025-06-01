@@ -43,8 +43,9 @@ By leveraging GitHub Actions to bridge Notion and PR workflows, we simplify the 
 3. Fill in the integration details:
    - **Name**: Your integration name (e.g., "GitHub PR Context")
    - **Workspace**: Select your workspace
-   - **Capabilities**: Read content
+   - **Capabilities**: Check "Read content" (other capabilities are not required)
 4. Click "Submit" and copy the **Internal Integration Token**
+5. **Important**: Keep this token secure - it will be used in GitHub Secrets
 
 ### Step 2: Share Notion Pages/Databases
 
@@ -55,6 +56,8 @@ For each Notion page or database you want to access:
 3. Click "Invite" and search for your integration name
 4. Select your integration and click "Invite"
 
+**📝 Note**: You need to share each page/database individually that you want to reference in PRs. Child pages inherit permissions automatically.
+
 ### Step 3: Configure GitHub Repository
 
 1. Go to your GitHub repository
@@ -63,6 +66,8 @@ For each Notion page or database you want to access:
 4. Add the following secret:
    - **Name**: `NOTION_TOKEN`
    - **Value**: Your Notion integration token from Step 1
+
+**🔒 Security**: Never commit the Notion token directly to your repository. Always use GitHub Secrets.
 
 ### Step 4: Create Workflow File
 
@@ -79,8 +84,8 @@ jobs:
   add-notion-context:
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: write
-      contents: read
+      pull-requests: write  # Required to post comments
+      contents: read       # Required to read PR descriptions
     steps:
       - name: Add Notion Context
         uses: wasabeef/notion-pr-ai-context@v1
@@ -159,6 +164,23 @@ This document outlines the authentication system...
 - **Pages**: Full page content with nested blocks
 - **Databases**: Table format with all visible properties
 - **Nested content**: Child pages and blocks (up to API limits)
+
+## 🔍 Troubleshooting
+
+### Common Issues
+
+1. **"Failed to fetch Notion content"**
+   - Ensure the Notion page/database is shared with your integration
+   - Verify the `NOTION_TOKEN` secret is correctly set
+   - Check that the URL in PR description is accessible
+
+2. **"No Notion URLs found"**
+   - Ensure URLs are in the PR description (not just in comments)
+   - Check URL format - should be `https://notion.so/...` or `https://www.notion.so/...`
+
+3. **"Insufficient permissions"**
+   - Verify GitHub Actions has `pull-requests: write` permission
+   - Check if branch protection rules are blocking the action
 
 ## 🤝 Contributing
 
