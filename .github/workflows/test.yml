@@ -9,6 +9,9 @@ jobs:
   test-action:
     runs-on: ubuntu-latest
     name: Test Notion to PR Comments
+    permissions:
+      pull-requests: write
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
