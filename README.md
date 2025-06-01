@@ -122,7 +122,7 @@ The action will create a comment like:
 
 <img width="919" alt="Screenshot 2025-06-01 at 16 38 14" src="https://github.com/user-attachments/assets/19009bcf-7e19-4746-965b-fa606472bcf1" />
 
-````markdown
+```markdown
 ### 🤖 Notion Context (2 link(s) processed)
 
 <details>
@@ -135,22 +135,8 @@ The action will create a comment like:
 
 This document outlines the authentication system...
 ```
-````
 
 </details>
-
-<details>
-<summary>&nbsp;&nbsp;🗃️ API Documentation Database</summary>
-
-```markdown
-| Endpoint     | Method | Description |
-| ------------ | ------ | ----------- |
-| /auth/login  | POST   | User login  |
-| /auth/logout | POST   | User logout |
-```
-
-</details>
-```
 
 ## 🔧 Configuration
 
