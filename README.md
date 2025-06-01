@@ -88,7 +88,7 @@ jobs:
       contents: read       # Required to read PR descriptions
     steps:
       - name: Add Notion Content to PR
-        uses: wasabeef/notion-to-pr-comments@v1
+        uses: wasabeef/notion-to-pr-comments@v1,0.0
         with:
           notion-token: ${{ secrets.NOTION_TOKEN }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
