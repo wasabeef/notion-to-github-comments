@@ -24,10 +24,10 @@ async function run() {
     
     for (const url of urls) {
       try {
-        const { title, markdown } = await notion.getTitleAndMarkdown(url);
+        const { title, markdown, url: notionPageUrl } = await notion.getTitleAndMarkdown(url);
         const icon = url.includes('/database/') ? '🗃️' : '📄';
         sections.push(
-          `<details>\n<summary>&nbsp;&nbsp;${icon} ${title}</summary>\n\n\`\`\`markdown\n${markdown}\n\`\`\`\n</details>`
+          `<details>\n<summary>&nbsp;&nbsp;${icon} ${title}</summary>\n<a href="${notionPageUrl}" target="_blank" rel="noopener noreferrer">${notionPageUrl}</a>\n<br>\n<br>\n\n\`\`\`markdown\n${markdown}\n\`\`\`\n</details>`
         );
       } catch (e) {
         errorCount++;

@@ -10,7 +10,7 @@ export class NotionClient {
     this.n2m = new NotionToMarkdown({ notionClient: this.client });
   }
 
-  async getTitleAndMarkdown(url: string): Promise<{ title: string; markdown: string }> {
+  async getTitleAndMarkdown(url: string): Promise<{ title: string; markdown: string; url: string }> {
     const id = this.extractId(url);
     let title = '';
     let markdown = '';
@@ -23,7 +23,7 @@ export class NotionClient {
       title = this.getPageTitle(page);
       markdown = await this.pageToMarkdown(id);
     }
-    return { title, markdown };
+    return { title, markdown, url };
   }
 
   private extractId(url: string): string {
@@ -48,7 +48,17 @@ export class NotionClient {
   }
 
   private getPageTitle(page: any): string {
-    return page.properties?.title?.title?.[0]?.plain_text || page.title?.[0]?.plain_text || 'Untitled Page';
+    // Find the property with type 'title'
+    if (page.properties) {
+      for (const propName in page.properties) {
+        const prop = page.properties[propName];
+        if (prop?.type === 'title' && prop.title?.[0]?.plain_text) {
+          return prop.title[0].plain_text;
+        }
+      }
+    }
+    // Fallback for older page structures or if no title property found
+    return page.title?.[0]?.plain_text || 'Untitled Page';
   }
 
   private getDatabaseTitle(db: any): string {
