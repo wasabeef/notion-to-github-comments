@@ -47,4 +47,24 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           name: Release ${{ github.ref_name }}
-          generate_release_notes: true 
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}  # v1.0.0-beta のようなタグは prerelease
+          body: |
+            🎉 **Notion PR AI Context ${{ github.ref_name }}**
+            
+            A GitHub Action that extracts Notion URLs from Pull Request descriptions and adds their content as AI context comments.
+            
+            ## 🚀 Usage
+            
+            ```yaml
+            - name: Add Notion Context
+              uses: wasabeef/notion-pr-ai-context@${{ github.ref_name }}
+              with:
+                notion-token: ${{ secrets.NOTION_TOKEN }}
+                github-token: ${{ github.token }}
+            ```
+            
+            ## 📋 What's New
+            
+            ${{ steps.create_release.outputs.body }} 
