@@ -124,7 +124,7 @@ The action will create a comment like:
 ### 🤖 Notion Context (2 link(s) processed)
 
 <details>
-<summary>📄 User Authentication Design</summary>
+<summary>&nbsp;&nbsp;📄 User Authentication Design</summary>
 
 ```markdown
 # User Authentication Flow
@@ -138,7 +138,7 @@ This document outlines the authentication system...
 </details>
 
 <details>
-<summary>🗃️ API Documentation Database</summary>
+<summary>&nbsp;&nbsp;🗃️ API Documentation Database</summary>
 
 ```markdown
 | Endpoint     | Method | Description |

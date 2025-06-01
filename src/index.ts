@@ -27,12 +27,12 @@ async function run() {
         const { title, markdown } = await notion.getTitleAndMarkdown(url);
         const icon = url.includes('/database/') ? '🗃️' : '📄';
         sections.push(
-          `<details>\n<summary>${icon} ${title}</summary>\n\n\`\`\`markdown\n${markdown}\n\`\`\`\n</details>`
+          `<details>\n<summary>&nbsp;&nbsp;${icon} ${title}</summary>\n\n\`\`\`markdown\n${markdown}\n\`\`\`\n</details>`
         );
       } catch (e) {
         errorCount++;
         sections.push(
-          `<details>\n<summary>⚠️ Failed to fetch: ${url}</summary>\n\nCould not retrieve: ${(e as Error).message}\n</details>`
+          `<details>\n<summary>&nbsp;&nbsp;⚠️ Failed to fetch: ${url}</summary>\n\nCould not retrieve: ${(e as Error).message}\n</details>`
         );
       }
     }
