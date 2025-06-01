@@ -15,6 +15,19 @@ A GitHub Action that automatically extracts Notion page and database information
 - **Smart Updates**: Automatically updates comments when PR descriptions change
 - **Error Handling**: Gracefully handles inaccessible or invalid Notion links
 
+## 💡 Motivation
+
+While AI agents can access Notion content through MCP (Model Context Protocol) or direct API calls, this approach often involves significant costs and time overhead for prompt processing. This GitHub Action provides a more efficient, cost-effective solution by using the classic approach of posting Notion content as PR comments.
+
+**Why this approach?**
+
+- **Cost Efficiency**: Eliminates repeated API calls and prompt processing costs for AI agents
+- **Performance**: Pre-fetches content during PR creation instead of on-demand access
+- **Simplicity**: Reduces complexity in AI agent implementations by providing ready-to-use context
+- **Accessibility**: Makes Notion content immediately visible to both human reviewers and AI tools
+
+By leveraging GitHub Actions to bridge Notion and PR workflows, we simplify the integration while maintaining full functionality for AI-assisted code reviews.
+
 ## 📋 Prerequisites
 
 - A Notion workspace with pages/databases you want to reference
@@ -149,9 +162,9 @@ This document outlines the authentication system...
 
 ## 🤝 Contributing
 
-コントリビューションを歓迎します！詳細な開発ガイド、リリースプロセス、およびタグ管理については [CONTRIBUTING.md](CONTRIBUTING.md) をご覧ください。
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development guide, release process, and tag management.
 
-### クイックスタート
+### Quick Start
 
 ```bash
 git clone https://github.com/wasabeef/notion-pr-ai-context.git
