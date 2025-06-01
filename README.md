@@ -1,6 +1,6 @@
-# Notion PR AI Context
+# Notion to PR Comments
 
-[![GitHub release](https://img.shields.io/github/release/wasabeef/notion-pr-ai-context.svg)](https://github.com/wasabeef/notion-pr-ai-context/releases)
+[![GitHub release](https://img.shields.io/github/release/wasabeef/notion-to-pr-comments.svg)](https://github.com/wasabeef/notion-to-pr-comments/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A GitHub Action that automatically extracts Notion page and database information from Pull Request descriptions, converts them to Markdown format, and posts them as AI-ready context in PR comments.
@@ -17,16 +17,16 @@ A GitHub Action that automatically extracts Notion page and database information
 
 ## 💡 Motivation
 
-While AI agents can access Notion content through MCP (Model Context Protocol) or direct API calls, this approach often involves significant costs and time overhead for prompt processing. This GitHub Action provides a more efficient, cost-effective solution by using the classic approach of posting Notion content as PR comments.
+When using multiple AI agents (Claude, Devin, Cursor, etc.) for code reviews and development, each agent typically needs to fetch Notion documentation independently. This creates **multiplied API costs**, **setup complexity**, and **prompt engineering overhead** - even with MCP available.
 
-**Why this approach?**
+This GitHub Action solves these issues by fetching Notion content once and posting it as PR comments, making it instantly available to all AI agents and human reviewers without additional API calls or prompt engineering.
 
-- **Cost Efficiency**: Eliminates repeated API calls and prompt processing costs for AI agents
-- **Performance**: Pre-fetches content during PR creation instead of on-demand access
-- **Simplicity**: Reduces complexity in AI agent implementations by providing ready-to-use context
-- **Accessibility**: Makes Notion content immediately visible to both human reviewers and AI tools
+**Key benefits:**
 
-By leveraging GitHub Actions to bridge Notion and PR workflows, we simplify the integration while maintaining full functionality for AI-assisted code reviews.
+- **Cost Efficient**: One API call instead of multiple per agent
+- **Zero Setup**: No per-agent Notion integration required
+- **Instant Access**: Pre-fetched content ready for any AI agent
+- **Consistent Context**: All agents see identical content
 
 ## 📋 Prerequisites
 
@@ -41,7 +41,7 @@ By leveraging GitHub Actions to bridge Notion and PR workflows, we simplify the 
 1. Go to [Notion Developers](https://www.notion.so/my-integrations)
 2. Click "New integration"
 3. Fill in the integration details:
-   - **Name**: Your integration name (e.g., "GitHub PR Context")
+   - **Name**: Your integration name (e.g., "GitHub PR Comments")
    - **Workspace**: Select your workspace
    - **Capabilities**: Check "Read content" (other capabilities are not required)
 4. Click "Submit" and copy the **Internal Integration Token**
@@ -71,24 +71,24 @@ For each Notion page or database you want to access:
 
 ### Step 4: Create Workflow File
 
-Create `.github/workflows/notion-pr-ai-context.yml` in your repository:
+Create `.github/workflows/notion-to-pr-comments.yml` in your repository:
 
 ```yaml
-name: Notion PR AI Context
+name: Notion to PR Comments
 
 on:
   pull_request:
     types: [opened, edited]
 
 jobs:
-  add-notion-context:
+  add-notion-comments:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write  # Required to post comments
       contents: read       # Required to read PR descriptions
     steps:
-      - name: Add Notion Context
-        uses: wasabeef/notion-pr-ai-context@v1
+      - name: Add Notion Content to PR
+        uses: wasabeef/notion-to-pr-comments@v1
         with:
           notion-token: ${{ secrets.NOTION_TOKEN }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -121,7 +121,7 @@ This PR implements the new user authentication flow.
 The action will create a comment like:
 
 ````markdown
-### 🤖 Notion AI Context (2 link(s) processed)
+### 🤖 Notion Context (2 link(s) processed)
 
 <details>
 <summary>📄 User Authentication Design</summary>
@@ -170,11 +170,13 @@ This document outlines the authentication system...
 ### Common Issues
 
 1. **"Failed to fetch Notion content"**
+
    - Ensure the Notion page/database is shared with your integration
    - Verify the `NOTION_TOKEN` secret is correctly set
    - Check that the URL in PR description is accessible
 
 2. **"No Notion URLs found"**
+
    - Ensure URLs are in the PR description (not just in comments)
    - Check URL format - should be `https://notion.so/...` or `https://www.notion.so/...`
 
@@ -189,8 +191,8 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for det
 ### Quick Start
 
 ```bash
-git clone https://github.com/wasabeef/notion-pr-ai-context.git
-cd notion-pr-ai-context
+git clone https://github.com/wasabeef/notion-to-pr-comments.git
+cd notion-to-pr-comments
 bun install
 bun run test
 ```
@@ -203,7 +205,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 If you encounter any issues or have questions:
 
-1. Check the [Issues](https://github.com/wasabeef/notion-pr-ai-context/issues) page
+1. Check the [Issues](https://github.com/wasabeef/notion-to-pr-comments/issues) page
 2. Create a new issue with detailed information
 3. Include relevant logs and configuration
 

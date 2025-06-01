@@ -1,5 +1,5 @@
-name: 'Notion PR AI Context'
-description: 'Extracts Notion page/database info from PR descriptions and posts AI-ready Markdown context as a PR comment'
+name: 'Notion to PR Comments'
+description: 'Extracts Notion page/database info from PR descriptions and posts formatted Markdown content as PR comments'
 author: 'wasabeef'
 inputs:
   notion-token:

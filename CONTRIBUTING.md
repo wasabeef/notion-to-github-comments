@@ -1,43 +1,43 @@
-# Contributing to Notion PR AI Context
+# Contributing to Notion to PR Comments
 
-🎉 **コントリビューションを歓迎します！** Pull Request の提出をお気軽にお願いします。
+🎉 **Contributions are welcome!** Please feel free to submit a Pull Request.
 
 ## 🛠️ Development Setup
 
-### 前提条件
+### Prerequisites
 
-- [Bun](https://bun.sh/) のインストール
-- Node.js 18+ (Bun と互換性のあるバージョン)
+- [Bun](https://bun.sh/) installed
+- Node.js 18+ (compatible with Bun)
 - Git
 
-### 開発環境のセットアップ
+### Development Environment Setup
 
-1. **リポジトリをクローン**:
+1. **Clone the repository**:
 
    ```bash
-   git clone https://github.com/wasabeef/notion-pr-ai-context.git
-   cd notion-pr-ai-context
+   git clone https://github.com/wasabeef/notion-to-pr-comments.git
+   cd notion-to-pr-comments
    ```
 
-2. **依存関係をインストール**:
+2. **Install dependencies**:
 
    ```bash
    bun install
    ```
 
-3. **プロジェクトをビルド**:
+3. **Build the project**:
 
    ```bash
    bun run build
    ```
 
-4. **テストを実行**:
+4. **Run tests**:
 
    ```bash
    bun run test
    ```
 
-5. **Lint を実行**:
+5. **Run linter**:
 
    ```bash
    bun run lint
@@ -46,7 +46,7 @@
 ## 📁 Project Structure
 
 ```text
-notion-pr-ai-context/
+notion-to-pr-comments/
 ├── src/
 │   ├── index.ts           # Main entry point
 │   ├── notion-client.ts   # Notion API integration
@@ -68,59 +68,59 @@ notion-pr-ai-context/
 
 ## 🔄 Development Workflow
 
-### 1. 機能開発
+### 1. Feature Development
 
-1. **ブランチ作成**:
+1. **Create branch**:
    ```bash
    git checkout -b feature/your-feature-name
    ```
 
-2. **開発・テスト**:
+2. **Develop and test**:
    ```bash
-   bun run test     # テスト実行
-   bun run lint     # コード品質チェック
-   bun run build    # ビルド確認
+   bun run test     # Run tests
+   bun run lint     # Check code quality
+   bun run build    # Verify build
    ```
 
-3. **Pull Request 作成**: GitHub でPRを作成
+3. **Create Pull Request**: Create PR on GitHub
 
-### 2. テスト
+### 2. Testing
 
-- **Unit Tests**: `bun run test` でURL抽出ロジックをテスト
-- **Integration Tests**: `.github/workflows/test.yml` で実際のAction動作をテスト
-- **CI Tests**: すべてのプルリクエストでCI piplineが自動実行
+- **Unit Tests**: Test URL extraction logic with `bun run test`
+- **Integration Tests**: Test actual Action behavior with `.github/workflows/test.yml`
+- **CI Tests**: Automated CI pipeline runs on all pull requests
 
-### 3. コード品質
+### 3. Code Quality
 
-- **TypeScript**: 型安全性を保つため、型エラーを修正してください
-- **ESLint**: `bun run lint` でコードスタイルを確認
-- **Prettier**: コードフォーマットの統一
+- **TypeScript**: Fix type errors to maintain type safety
+- **ESLint**: Check code style with `bun run lint`
+- **Prettier**: Consistent code formatting
 
 ## 🏷️ Release Process & Tagging
 
-このプロジェクトは **リリース時自動化** を採用しています。
+This project adopts **release-time automation**.
 
-### リリースフロー
+### Release Flow
 
-1. **開発完了**: `main` ブランチに変更をマージ
-2. **タグ作成**: バージョンタグを作成してプッシュ
-3. **自動化実行**: GitHub Actions が自動で：
-   - TypeScript をビルドして `dist/` ファイル生成
-   - `dist/` をタグにコミット
-   - GitHub Release を自動公開
+1. **Development complete**: Merge changes to `main` branch
+2. **Create tag**: Create and push version tag
+3. **Automated execution**: GitHub Actions automatically:
+   - Build TypeScript and generate `dist/` files
+   - Commit `dist/` files to the tag
+   - Automatically publish GitHub Release
 
-### タグ規則
+### Tagging Rules
 
-#### 通常リリース
+#### Regular Release
 ```bash
-# 例: v1.2.3
+# Example: v1.2.3
 git tag v1.2.3
 git push origin v1.2.3
 ```
 
-#### プレリリース (自動検出)
+#### Pre-release (Auto-detection)
 ```bash
-# ハイフンが含まれると自動的にプレリリースとして公開
+# Tags containing hyphens are automatically published as pre-releases
 git tag v1.2.3-beta.1
 git push origin v1.2.3-beta.1
 
@@ -128,29 +128,29 @@ git tag v1.2.3-alpha.2
 git push origin v1.2.3-alpha.2
 ```
 
-#### メジャーバージョンタグ
+#### Major Version Tags
 ```bash
-# GitHub Action使用時の利便性のため
-git tag v1  # v1.x.x の最新を指す
+# For convenience when using GitHub Actions
+git tag v1  # Points to latest v1.x.x
 git push origin v1
 ```
 
-### `dist/` ディレクトリ管理
+### `dist/` Directory Management
 
-- **開発時**: `dist/` は `.gitignore` で除外、管理しない
-- **リリース時**: Release ワークフローが自動でビルド & コミット
-- **利点**: 
-  - 開発時のマージコンフリクト回避
-  - CI の簡素化
-  - GitHub Action のベストプラクティス準拠
+- **During development**: `dist/` is excluded by `.gitignore`, not managed
+- **During release**: Release workflow automatically builds & commits
+- **Benefits**: 
+  - Avoid merge conflicts during development
+  - Simplified CI
+  - Follows GitHub Action best practices
 
-### バージョニング規則
+### Versioning Rules
 
-[Semantic Versioning](https://semver.org/) に従います：
+Follows [Semantic Versioning](https://semver.org/):
 
-- **MAJOR** (`v2.0.0`): 破壊的変更
-- **MINOR** (`v1.1.0`): 後方互換性のある新機能
-- **PATCH** (`v1.0.1`): 後方互換性のあるバグ修正
+- **MAJOR** (`v2.0.0`): Breaking changes
+- **MINOR** (`v1.1.0`): Backward-compatible new features
+- **PATCH** (`v1.0.1`): Backward-compatible bug fixes
 
 ## 🧪 Testing Guidelines
 
@@ -164,70 +164,70 @@ bun run test
 ### Integration Tests
 
 ```bash
-# GitHub Actions でのテスト (手動実行可能)
+# Manual testing with GitHub Actions
 gh workflow run test.yml
 ```
 
-### 新機能のテスト
+### Testing New Features
 
-1. **Unit Test 追加**: `tests/` ディレクトリに適切なテストを追加
-2. **Integration Test**: 実際のNotion URLでAction動作を確認
-3. **Edge Case**: エラーハンドリングのテスト
+1. **Add Unit Tests**: Add appropriate tests in the `tests/` directory
+2. **Integration Test**: Verify Action behavior with actual Notion URLs
+3. **Edge Cases**: Test error handling scenarios
 
 ## 📝 Pull Request Guidelines
 
-### PR作成時
+### When Creating PRs
 
-1. **明確な説明**: 変更内容と理由を記載
-2. **関連Issue**: 関連するIssueがあれば言及
-3. **テスト**: 適切なテストを含める
-4. **Breaking Changes**: 破壊的変更がある場合は明記
+1. **Clear description**: Describe changes and reasoning
+2. **Related Issues**: Reference related issues if any
+3. **Tests**: Include appropriate tests
+4. **Breaking Changes**: Clearly mark any breaking changes
 
-### PR例
+### PR Example
 
 ```markdown
-## 概要
-新しいNotion URL形式のサポートを追加
+## Overview
+Add support for new Notion URL formats
 
-## 変更内容
-- カスタムドメインのサポート追加
-- URL抽出ロジックの改善
-- 新しいテストケース追加
+## Changes
+- Add custom domain support
+- Improve URL extraction logic
+- Add new test cases
 
-## テスト
+## Testing
 - [x] Unit tests pass
 - [x] Integration tests pass
 - [x] Manual testing completed
 
-## 破壊的変更
-なし
+## Breaking Changes
+None
 ```
 
 ## 🐛 Issue Reporting
 
-バグや改善提案がある場合：
+When reporting bugs or suggesting improvements:
 
-1. **既存Issue確認**: 重複を避けるため既存Issueを確認
-2. **詳細な情報**: 再現手順、期待される動作、実際の動作
-3. **環境情報**: OS、Node.js/Bunバージョン等
-4. **ログ**: 関連するエラーログやスクリーンショット
+1. **Check existing issues**: Avoid duplicates by checking existing issues
+2. **Detailed information**: Include reproduction steps, expected vs actual behavior
+3. **Environment details**: OS, Node.js/Bun versions, etc.
+4. **Logs**: Include relevant error logs or screenshots
 
 ## 🙏 Code of Conduct
 
-このプロジェクトに参加する全ての人が尊重される環境を維持するため：
+To maintain a respectful environment for everyone participating:
 
-- 建設的なフィードバックを心がける
-- 多様性を尊重する
-- 親切で丁寧なコミュニケーション
-- 学習と成長を促進する環境作り
+- Provide constructive feedback
+- Respect diversity
+- Communicate kindly and politely
+- Foster an environment for learning and growth
 
 ## 🎯 Development Roadmap
 
-今後の開発予定：
+Planned developments:
 
-- [ ] より多くのNotion block typeサポート
-- [ ] パフォーマンス最適化
-- [ ] 国際化(i18n)サポート
-- [ ] カスタムマークダウンテンプレート
+- [ ] Support for more Notion block types
+- [ ] Performance optimizations
+- [ ] Internationalization (i18n) support
+- [ ] Custom markdown templates
 
-ご質問やサポートが必要な場合は、お気軽に [Issue](https://github.com/wasabeef/notion-pr-ai-context/issues) を作成してください！ 
+If you have questions or need support, please feel free to create an [Issue](https://github.com/wasabeef/notion-to-pr-comments/issues)! 

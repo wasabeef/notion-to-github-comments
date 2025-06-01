@@ -1,6 +1,6 @@
 import * as github from '@actions/github';
 
-const HIDDEN_MARKER = '<!-- NOTION_PR_CONTEXT -->';
+const HIDDEN_MARKER = '<!-- NOTION_TO_PR_COMMENTS -->';
 
 export class GithubClient {
   private octokit: ReturnType<typeof github.getOctokit>;

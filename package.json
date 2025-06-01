@@ -1,7 +1,7 @@
 {
-  "name": "notion-pr-ai-context",
+  "name": "notion-to-pr-comments",
   "version": "1.0.0",
-  "description": "GitHub Action: Notion PR AI Context",
+  "description": "GitHub Action: Notion to PR Comments",
   "main": "dist/index.js",
   "scripts": {
     "prepare": "npm run build",
@@ -23,12 +23,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/wasabeef/notion-pr-ai-context.git"
+    "url": "git+https://github.com/wasabeef/notion-to-pr-comments.git"
   },
   "bugs": {
-    "url": "https://github.com/wasabeef/notion-pr-ai-context/issues"
+    "url": "https://github.com/wasabeef/notion-to-pr-comments/issues"
   },
-  "homepage": "https://github.com/wasabeef/notion-pr-ai-context#readme",
+  "homepage": "https://github.com/wasabeef/notion-to-pr-comments#readme",
   "dependencies": {
     "@actions/core": "^1.10.1",
     "@actions/github": "^6.0.0",

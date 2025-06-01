@@ -42,7 +42,7 @@ async function run() {
       ? `${successCount} success, ${errorCount} error(s)`
       : `${urls.length} processed`;
     
-    const commentBody = `### 🤖 Notion AI Context (${statusText})\n\n${sections.join('\n\n')}`;
+    const commentBody = `### 🤖 Notion Context (${statusText})\n\n${sections.join('\n\n')}`;
 
     const githubClient = new GithubClient(githubToken);
     const existingCommentId = await githubClient.findExistingComment();
