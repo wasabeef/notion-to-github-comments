@@ -149,43 +149,15 @@ This document outlines the authentication system...
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+コントリビューションを歓迎します！詳細な開発ガイド、リリースプロセス、およびタグ管理については [CONTRIBUTING.md](CONTRIBUTING.md) をご覧ください。
 
-### Development Setup
+### クイックスタート
 
-1. Clone the repository:
-
-   ```bash
-   git clone https://github.com/wasabeef/notion-pr-ai-context.git
-   cd notion-pr-ai-context
-   ```
-
-2. Install dependencies:
-
-   ```bash
-   bun install
-   ```
-
-3. Build the project:
-
-   ```bash
-   bun run build
-   ```
-
-4. Run tests:
-
-   ```bash
-   bun run test
-   ```
-
-### Project Structure
-
-```text
-src/
-├── index.ts           # Main entry point
-├── notion-client.ts   # Notion API integration
-├── github-client.ts   # GitHub API integration
-└── url-extractor.ts   # URL parsing utilities
+```bash
+git clone https://github.com/wasabeef/notion-pr-ai-context.git
+cd notion-pr-ai-context
+bun install
+bun run test
 ```
 
 ## 📝 License
