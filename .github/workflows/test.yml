@@ -1,0 +1,42 @@
+name: Test Notion PR Context Action
+
+on:
+  workflow_dispatch:  # Allow manual dispatch
+  pull_request:
+    types: [opened, edited, reopened]  # Trigger on PR creation/edit/reopen
+
+jobs:
+  test-action:
+    runs-on: ubuntu-latest
+    name: Test Notion PR Context
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Import .tool-versions
+        uses: wasabeef/import-asdf-tool-versions-action@v1.0.3
+        id: asdf # ID to reference outputs
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: ${{ steps.asdf.outputs.bun }} # Use Bun version from .tool-versions
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build action
+        run: bun run build  # Compile TypeScript
+
+      - name: Run Notion PR Context Action
+        id: notion-pr-context
+        uses: ./
+        with:
+          notion-token: ${{ secrets.NOTION_TOKEN }}   # Secret that needs to be manually configured
+          github-token: ${{ secrets.GITHUB_TOKEN }}  # GitHub's automatic token
+
+      - name: Verify comment creation
+        if: steps.notion-pr-context.outcome == 'success'
+        run: |
+          echo "Action completed successfully"
+          echo "Comment URL: ${{ steps.notion-pr-context.outputs.comment-url }}"

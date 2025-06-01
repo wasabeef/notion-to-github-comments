@@ -1,0 +1,20 @@
+name: 'Notion PR AI Context'
+description: 'Extracts Notion page/database info from PR descriptions and posts AI-ready Markdown context as a PR comment'
+author: 'wasabeef'
+inputs:
+  notion-token:
+    description: 'Notion API Integration Token'
+    required: true
+  github-token:
+    description: 'GitHub Token'
+    required: true
+    default: '${{ github.token }}'
+outputs:
+  comment-url:
+    description: 'The URL of the created or updated comment.'
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
+branding:
+  icon: 'book'
+  color: 'blue'

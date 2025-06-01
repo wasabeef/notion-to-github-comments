@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Lock files (using bun.lockb)
+package-lock.json
+yarn.lock
+
+# Development tools
+.specstory/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+
+# Build output
+dist/
