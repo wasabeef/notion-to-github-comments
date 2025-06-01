@@ -26,28 +26,38 @@ exports.extractNotionURLs = extractNotionURLs;
 //    - Page IDs are typically 32-character hexadecimal strings (UUIDs, often presented without hyphens in URLs).
 //    - Database IDs can also be 32-character UUIDs or sometimes shorter, more opaque strings.
 //    - The API and internal linking often use UUIDs with hyphens. This extractor aims to be flexible.
-// Extremely simple approach - find all URLs containing "notion"
-const NOTION_URL_REGEX = /https?:\/\/[^\s]+/gi;
+// Regex patterns organized by purpose
+// 1. Basic URL extraction - captures any HTTP/HTTPS URL
+const ALL_URLS_REGEX = /https?:\/\/[^\s]+/gi;
+// 2. Trailing punctuation cleanup - removes common punctuation from URL end
+const TRAILING_PUNCTUATION_REGEX = /[.,;!?)]+$/;
+// 3. Query parameter detection - checks if URL has ?p= or ?page_id= with valid Notion ID
+const QUERY_PARAM_DETECTION_REGEX = /[?&](?:p|page_id)=([a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/;
+// 4. Query parameter extraction - extracts URL up to and including the Notion ID in query params
+const QUERY_PARAM_EXTRACTION_REGEX = /^(.*[?&](?:p|page_id)=[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|.*[?&](?:p|page_id)=[a-f0-9]{32})/;
+// 5. Notion ID validation - matches valid Notion IDs (32 hex chars or UUID format)
+const NOTION_ID_REGEX = /[a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/;
 function extractNotionURLs(text) {
     const urls = new Set();
     let match;
-    // Reset global regex
-    NOTION_URL_REGEX.lastIndex = 0;
-    while ((match = NOTION_URL_REGEX.exec(text)) !== null) {
+    // Step 1: Extract all URLs from text
+    ALL_URLS_REGEX.lastIndex = 0;
+    while ((match = ALL_URLS_REGEX.exec(text)) !== null) {
         if (match[0]) {
             let url = match[0];
-            // Clean trailing punctuation and special characters
-            url = url.replace(/[.,;!?)]+$/, '');
-            // Special handling for query parameter URLs - stop after the Notion ID
-            if (/[?&](?:p|page_id)=([a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/.test(url)) {
-                const paramMatch = url.match(/^(.*[?&](?:p|page_id)=[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|.*[?&](?:p|page_id)=[a-f0-9]{32})/);
+            // Step 2: Clean trailing punctuation
+            url = url.replace(TRAILING_PUNCTUATION_REGEX, '');
+            // Step 3: Handle query parameter URLs - truncate after Notion ID
+            if (QUERY_PARAM_DETECTION_REGEX.test(url)) {
+                const paramMatch = url.match(QUERY_PARAM_EXTRACTION_REGEX);
                 if (paramMatch) {
                     url = paramMatch[1];
                 }
             }
-            // Only include if it contains notion.so, notion.site, or has a valid Notion ID
-            if (url.includes('notion.so') || url.includes('notion.site') ||
-                /[a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/.test(url)) {
+            // Step 4: Filter for Notion-related URLs only
+            const isNotionDomain = url.includes('notion.so') || url.includes('notion.site');
+            const hasNotionId = NOTION_ID_REGEX.test(url);
+            if (isNotionDomain || hasNotionId) {
                 urls.add(url);
             }
         }
