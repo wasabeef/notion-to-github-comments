@@ -55,16 +55,6 @@ jobs:
             
             A GitHub Action that extracts Notion URLs from Pull Request descriptions and adds their content as formatted comments.
             
-            ## 🚀 Usage
-            
-            ```yaml
-            - name: Add Notion Content to PR
-              uses: wasabeef/notion-to-pr-comments@${{ github.ref_name }}
-              with:
-                notion-token: ${{ secrets.NOTION_TOKEN }}
-                github-token: ${{ github.token }}
-            ```
-            
             ## 📋 What's New
             
             ${{ steps.create_release.outputs.body }} 
