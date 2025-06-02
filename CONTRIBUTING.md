@@ -1,4 +1,4 @@
-# Contributing to Notion to PR Comments
+# Contributing to Notion to GitHub Comments
 
 🎉 **Contributions are welcome!** Please feel free to submit a Pull Request.
 
@@ -15,8 +15,8 @@
 1. **Clone the repository**:
 
    ```bash
-   git clone https://github.com/wasabeef/notion-to-pr-comments.git
-   cd notion-to-pr-comments
+   git clone https://github.com/wasabeef/notion-to-github-comments.git
+   cd notion-to-github-comments
    ```
 
 2. **Install dependencies**:
@@ -46,7 +46,7 @@
 ## 📁 Project Structure
 
 ```text
-notion-to-pr-comments/
+notion-to-github-comments/
 ├── src/
 │   ├── index.ts           # Main entry point
 │   ├── notion-client.ts   # Notion API integration
@@ -230,4 +230,4 @@ Planned developments:
 - [ ] Internationalization (i18n) support
 - [ ] Custom markdown templates
 
-If you have questions or need support, please feel free to create an [Issue](https://github.com/wasabeef/notion-to-pr-comments/issues)! 
+If you have questions or need support, please feel free to create an [Issue](https://github.com/wasabeef/notion-to-github-comments/issues)! 

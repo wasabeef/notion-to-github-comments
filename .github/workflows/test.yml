@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Import .tool-versions
-        uses: wasabeef/import-asdf-tool-versions-action@v1.0.3
+        uses: wasabeef/import-asdf-tool-versions-action@v1.1.0
         id: asdf # ID to reference outputs
 
       - name: Setup Bun
@@ -32,14 +32,14 @@ jobs:
         run: bun run build  # Compile TypeScript
 
       - name: Run Notion to PR Comments Action
-        id: notion-to-pr-comments
+        id: notion-to-github-comments
         uses: ./
         with:
           notion-token: ${{ secrets.NOTION_TOKEN }}  # Secret that needs to be manually configured
           github-token: ${{ secrets.GITHUB_TOKEN }}  # GitHub's automatic token
 
       - name: Verify comment creation
-        if: steps.notion-to-pr-comments.outcome == 'success'
+        if: steps.notion-to-github-comments.outcome == 'success'
         run: |
           echo "Action completed successfully"
-          echo "Comment URL: ${{ steps.notion-to-pr-comments.outputs.comment-url }}"
+          echo "Comment URL: ${{ steps.notion-to-github-comments.outputs.comment-url }}"
