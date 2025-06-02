@@ -1,6 +1,6 @@
-# Notion to PR Comments
+# Notion to GitHub Comments
 
-[![GitHub release](https://img.shields.io/github/release/wasabeef/notion-to-pr-comments.svg)](https://github.com/wasabeef/notion-to-pr-comments/releases)
+[![GitHub release](https://img.shields.io/github/release/wasabeef/notion-to-github-comments.svg)](https://github.com/wasabeef/notion-to-github-comments/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A GitHub Action that automatically extracts Notion page and database information from Pull Request descriptions, converts them to Markdown format, and posts them as AI-ready context in PR comments.
@@ -71,7 +71,7 @@ For each Notion page or database you want to access:
 
 ### Step 4: Create Workflow File
 
-Create `.github/workflows/notion-to-pr-comments.yml` in your repository:
+Create `.github/workflows/notion-to-github-comments.yml` in your repository:
 
 ```yaml
 name: Notion to PR Comments
@@ -88,7 +88,7 @@ jobs:
       contents: read       # Required to read PR descriptions
     steps:
       - name: Add Notion Content to PR
-        uses: wasabeef/notion-to-pr-comments@v1.0.0
+        uses: wasabeef/notion-to-github-comments@v1.0.0
         with:
           notion-token: ${{ secrets.NOTION_TOKEN }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -179,8 +179,8 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for det
 ### Quick Start
 
 ```bash
-git clone https://github.com/wasabeef/notion-to-pr-comments.git
-cd notion-to-pr-comments
+git clone https://github.com/wasabeef/notion-to-github-comments.git
+cd notion-to-github-comments
 bun install
 bun run test
 ```
@@ -193,7 +193,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 If you encounter any issues or have questions:
 
-1. Check the [Issues](https://github.com/wasabeef/notion-to-pr-comments/issues) page
+1. Check the [Issues](https://github.com/wasabeef/notion-to-github-comments/issues) page
 2. Create a new issue with detailed information
 3. Include relevant logs and configuration
 

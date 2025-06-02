@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Import .tool-versions
-        uses: wasabeef/import-asdf-tool-versions-action@v1.0.3
+        uses: wasabeef/import-asdf-tool-versions-action@v1.1.0
         id: asdf
 
       - name: Setup Bun
@@ -49,11 +49,11 @@ jobs:
           name: Release ${{ github.ref_name }}
           generate_release_notes: true
           draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}  # v1.0.0-beta のようなタグは prerelease
+          prerelease: ${{ contains(github.ref_name, '-') }}
           body: |
-            🎉 **Notion to PR Comments ${{ github.ref_name }}**
+            🎉 **Notion to GitHub Comments ${{ github.ref_name }}**
             
-            A GitHub Action that extracts Notion URLs from Pull Request descriptions and adds their content as formatted comments.
+            A GitHub Action that extracts Notion page and database URLs from Pull Request descriptions and posts their content as formatted, AI-ready comments.
             
             ## 📋 What's New
             

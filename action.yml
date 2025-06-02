@@ -1,5 +1,5 @@
-name: 'Notion to PR Comments'
-description: 'Extracts Notion page/database info from PR descriptions and posts formatted Markdown content as PR comments'
+name: 'Notion to GitHub Comments'
+description: 'Extracts Notion page/database info from GitHub PR/Issue descriptions and posts formatted Markdown content as GitHub comments'
 author: 'wasabeef'
 inputs:
   notion-token:
