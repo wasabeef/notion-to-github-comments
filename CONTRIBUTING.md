@@ -71,11 +71,13 @@ notion-to-github-comments/
 ### 1. Feature Development
 
 1. **Create branch**:
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
 
 2. **Develop and test**:
+
    ```bash
    bun run test     # Run tests
    bun run lint     # Check code quality
@@ -112,6 +114,7 @@ This project adopts **release-time automation**.
 ### Tagging Rules
 
 #### Regular Release
+
 ```bash
 # Example: v1.2.3
 git tag v1.2.3
@@ -119,16 +122,18 @@ git push origin v1.2.3
 ```
 
 #### Pre-release (Auto-detection)
+
 ```bash
 # Tags containing hyphens are automatically published as pre-releases
 git tag v1.2.3-beta.1
 git push origin v1.2.3-beta.1
 
-git tag v1.2.3-alpha.2  
+git tag v1.2.3-alpha.2
 git push origin v1.2.3-alpha.2
 ```
 
 #### Major Version Tags
+
 ```bash
 # For convenience when using GitHub Actions
 git tag v1  # Points to latest v1.x.x
@@ -139,7 +144,7 @@ git push origin v1
 
 - **During development**: `dist/` is excluded by `.gitignore`, not managed
 - **During release**: Release workflow automatically builds & commits
-- **Benefits**: 
+- **Benefits**:
   - Avoid merge conflicts during development
   - Simplified CI
   - Follows GitHub Action best practices
@@ -187,19 +192,23 @@ gh workflow run test.yml
 
 ```markdown
 ## Overview
+
 Add support for new Notion URL formats
 
 ## Changes
+
 - Add custom domain support
 - Improve URL extraction logic
 - Add new test cases
 
 ## Testing
+
 - [x] Unit tests pass
 - [x] Integration tests pass
 - [x] Manual testing completed
 
 ## Breaking Changes
+
 None
 ```
 
@@ -230,4 +239,4 @@ Planned developments:
 - [ ] Internationalization (i18n) support
 - [ ] Custom markdown templates
 
-If you have questions or need support, please feel free to create an [Issue](https://github.com/wasabeef/notion-to-github-comments/issues)! 
+If you have questions or need support, please feel free to create an [Issue](https://github.com/wasabeef/notion-to-github-comments/issues)!
