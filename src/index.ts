@@ -8,11 +8,19 @@ async function run() {
   try {
     const notionToken = core.getInput('notion-token', { required: true });
     const githubToken = core.getInput('github-token', { required: true });
-    const prBody = github.context.payload.pull_request?.body || '';
+    const prBody = github.context.payload.pull_request?.body || github.context.payload.issue?.body || '';
+    
+    const githubClient = new GithubClient(githubToken); // Initialize GithubClient once
 
     const urls = extractNotionURLs(prBody);
     if (urls.length === 0) {
       core.info('No Notion URLs found.');
+      // const githubClient = new GithubClient(githubToken); // Removed: already initialized
+      const existingCommentId = await githubClient.findExistingComment();
+      if (existingCommentId) {
+        await githubClient.deleteComment(existingCommentId);
+        core.info('Successfully deleted existing comment as no Notion URLs were found.');
+      }
       return;
     }
 
@@ -44,7 +52,7 @@ async function run() {
     
     const commentBody = `### 🤖 Notion Context (${statusText})\n\n${sections.join('\n\n')}`;
 
-    const githubClient = new GithubClient(githubToken);
+    // const githubClient = new GithubClient(githubToken); // Removed: already initialized
     const existingCommentId = await githubClient.findExistingComment();
     let commentUrl: string | undefined;
 

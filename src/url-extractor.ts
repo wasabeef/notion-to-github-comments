@@ -42,6 +42,13 @@ const QUERY_PARAM_EXTRACTION_REGEX = /^(.*[?&](?:p|page_id)=[a-f0-9]{8}-[a-f0-9]
 // 5. Notion ID validation - matches valid Notion IDs (32 hex chars or UUID format)
 const NOTION_ID_REGEX = /[a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/;
 
+/**
+ * Extracts Notion URLs from a given text.
+ * It identifies URLs pointing to notion.so, notion.site, or containing a Notion page/database ID.
+ * Cleans trailing punctuation from URLs and handles Notion IDs in query parameters.
+ * @param {string} text The input text to search for Notion URLs.
+ * @returns {string[]} An array of unique Notion URLs found in the text.
+ */
 export function extractNotionURLs(text: string): string[] {
   const urls = new Set<string>();
   let match;
