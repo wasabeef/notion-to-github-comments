@@ -3,6 +3,10 @@
 [![GitHub release](https://img.shields.io/github/release/wasabeef/notion-to-github-comments.svg)](https://github.com/wasabeef/notion-to-github-comments/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+<p align="center">
+  <a href="README.ja.md">日本語版</a>
+</p>
+
 A GitHub Action that automatically extracts Notion page and database information from Pull Request descriptions, converts them to Markdown format, and posts them as AI-ready context in PR comments.
 
 ## 🚀 Features
@@ -122,7 +126,7 @@ The action will create a comment like:
 
 <img width="919" alt="Screenshot 2025-06-01 at 16 38 14" src="https://github.com/user-attachments/assets/19009bcf-7e19-4746-965b-fa606472bcf1" />
 
-```markdown
+````markdown
 ### 🤖 Notion Context (2 link(s) processed)
 
 <details>
@@ -137,6 +141,7 @@ This document outlines the authentication system...
 ```
 
 </details>
+````
 
 ## 🔧 Configuration
 
