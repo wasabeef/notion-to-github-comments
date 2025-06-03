@@ -5,11 +5,21 @@ export class NotionClient {
   private client: Client;
   private n2m: NotionToMarkdown;
 
+  /**
+   * Creates an instance of NotionClient.
+   * @param {string} token The Notion API integration token.
+   */
   constructor(token: string) {
     this.client = new Client({ auth: token });
     this.n2m = new NotionToMarkdown({ notionClient: this.client });
   }
 
+  /**
+   * Retrieves the title and markdown content of a Notion page or a simplified markdown representation of a database.
+   * @param {string} url The URL of the Notion page or database.
+   * @returns {Promise<{ title: string; markdown: string; url: string }>} A promise that resolves to an object containing the title, markdown content, and the original URL.
+   * @throws {Error} If the Notion URL format is invalid or if there is an error retrieving data from Notion API.
+   */
   async getTitleAndMarkdown(url: string): Promise<{ title: string; markdown: string; url: string }> {
     const id = this.extractId(url);
     let title = '';
