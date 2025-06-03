@@ -17,23 +17,31 @@ export class NotionClient {
   /**
    * Retrieves the title and markdown content of a Notion page or a simplified markdown representation of a database.
    * @param {string} url The URL of the Notion page or database.
-   * @returns {Promise<{ title: string; markdown: string; url: string }>} A promise that resolves to an object containing the title, markdown content, and the original URL.
+   * @returns {Promise<{ title: string; markdown: string; url: string; icon: string | null }>} A promise that resolves to an object containing the title, markdown content, the original URL, and the icon.
    * @throws {Error} If the Notion URL format is invalid or if there is an error retrieving data from Notion API.
    */
-  async getTitleAndMarkdown(url: string): Promise<{ title: string; markdown: string; url: string }> {
+  async getTitleAndMarkdown(url: string): Promise<{ title: string; markdown: string; url: string; icon: string | null }> {
     const id = this.extractId(url);
     let title = '';
     let markdown = '';
+    let icon: string | null = null;
+
     if (url.includes('/database/')) {
       const db = await this.client.databases.retrieve({ database_id: id });
       title = this.getDatabaseTitle(db);
       markdown = await this.databaseToMarkdown(id);
+      if ('icon' in db && db.icon) {
+        icon = db.icon.type === 'emoji' ? db.icon.emoji : (db.icon.type === 'external' && db.icon.external ? db.icon.external.url : null);
+      }
     } else {
       const page = await this.client.pages.retrieve({ page_id: id });
       title = this.getPageTitle(page);
       markdown = await this.pageToMarkdown(id);
+      if ('icon' in page && page.icon) {
+        icon = page.icon.type === 'emoji' ? page.icon.emoji : (page.icon.type === 'external' && page.icon.external ? page.icon.external.url : null);
+      }
     }
-    return { title, markdown, url };
+    return { title, markdown, url, icon };
   }
 
   private extractId(url: string): string {
