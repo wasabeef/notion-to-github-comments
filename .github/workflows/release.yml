@@ -109,7 +109,13 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action [release]"
           git add -f dist/
-          git commit -m "build: add dist files for release ${{ steps.release_vars.outputs.version }}"
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes in dist/ files to commit"
+          else
+            git commit -m "build: add dist files for release ${{ steps.release_vars.outputs.version }}"
+          fi
           
           # Update the tag to include dist/ files
           git tag -d ${{ steps.release_vars.outputs.version }} 2>/dev/null || true
@@ -132,7 +138,7 @@ jobs:
             
             A GitHub Action that extracts Notion page and database URLs from Pull Request descriptions and posts their content as formatted, AI-ready comments.
             
-            ${{ steps.release_vars.outputs.custom_notes != '' && steps.release_vars.outputs.custom_notes || '## 📋 What\'s New\n\nAutomatic release notes generated below.' }}
+            ${{ steps.release_vars.outputs.custom_notes != '' && steps.release_vars.outputs.custom_notes || '## 📋 What''s New\n\nAutomatic release notes generated below.' }}
             
             ---
             
