@@ -132,7 +132,7 @@ jobs:
             
             A GitHub Action that extracts Notion page and database URLs from Pull Request descriptions and posts their content as formatted, AI-ready comments.
             
-            ${{ steps.release_vars.outputs.custom_notes != '' && steps.release_vars.outputs.custom_notes || '## 📋 What\'s New\n\nAutomatic release notes generated below.' }}
+            ${{ steps.release_vars.outputs.custom_notes != '' && steps.release_vars.outputs.custom_notes || '## 📋 What''s New\n\nAutomatic release notes generated below.' }}
             
             ---
             
