@@ -13,7 +13,7 @@ Pull Request の説明文から Notion ページやデータベースの情報�
 
 - **自動検出**: PR の説明文をスキャンし、Notion の URL を検出します (複数のリンクに対応)。
 - **API 連携**: 公式 API を介して Notion ページやデータベースからコンテンツを取得します。
-- **Markdown 変換**: Notion のコンテンツをクリーンで読みやすい Markdown 形式に変換します。
+- **Markdown 変換**: Notion のコンテンツをフラット化されたトグルブロックでクリーンで読みやすい Markdown 形式に変換します。
 - **AI フレンドリーな出力**: AI ツールや LLM 用に特別に整形されたコンテンツを出力します。
 - **折りたたみ可能なコメント**: PR をきれいに保つため、展開可能なセクションにコンテンツを投稿します。
 - **スマート更新**: PR の説明文が変更されると、コメントを自動的に更新します。
@@ -187,8 +187,19 @@ This document outlines the authentication system...
 git clone https://github.com/wasabeef/notion-to-github-comments.git
 cd notion-to-github-comments
 bun install
+# 単体テストのみ実行
 bun run test
+
+# 統合テスト実行 (Notion API セットアップが必要)
+NOTION_INTEGRATION_TOKEN=your_token TEST_NOTION_PAGE_URL=your_test_page_url bun run test
 ```
+
+### 統合テスト
+
+Notion API を使用する統合テストには、以下の環境変数を設定してください：
+
+- `NOTION_INTEGRATION_TOKEN`: Notion インテグレーショントークン
+- `TEST_NOTION_PAGE_URL`: テスト用 Notion ページ URL (オプション、デフォルトはダミー URL)
 
 ## 📝 ライセンス
 
