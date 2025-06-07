@@ -33,9 +33,18 @@ async function run() {
     for (const url of urls) {
       try {
         const { title, markdown, url: notionPageUrl, icon: notionIcon } = await notion.getTitleAndMarkdown(url);
-        const icon = notionIcon || (url.includes('/database/') ? '🗃️' : '📄');
+        
+        let iconHtml: string;
+        if (notionIcon && (notionIcon.startsWith('http://') || notionIcon.startsWith('https://'))) {
+          iconHtml = `<img src="${notionIcon}" width="16" height="16" alt="icon">`;
+        } else if (notionIcon) { // Emoji or other non-URL string
+          iconHtml = notionIcon;
+        } else { // notionIcon is null or empty
+          iconHtml = url.includes('/database/') ? '🗃️' : '📄';
+        }
+
         sections.push(
-          `<details>\n<summary>&nbsp;&nbsp;${icon} ${title}</summary>\n<a href="${notionPageUrl}" target="_blank" rel="noopener noreferrer">${notionPageUrl}</a>\n<br>\n<br>\n\n\`\`\`markdown\n${markdown}\n\`\`\`\n</details>`
+          `<details>\n<summary>&nbsp;&nbsp;${iconHtml} ${title}</summary>\n<a href="${notionPageUrl}" target="_blank" rel="noopener noreferrer">${notionPageUrl}</a>\n<br>\n<br>\n\n${markdown}\n</details>`
         );
       } catch (e) {
         errorCount++;

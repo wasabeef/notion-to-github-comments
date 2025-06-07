@@ -101,4 +101,38 @@ describe('extractNotionURLs', () => {
     expect(urls.length).toBe(1);
     expect(urls[0]).toBe('https://docs.anotherexample.co.uk/page-slug-12345678-aaaa-bbbb-cccc-1234567890ab?query=true');
   });
+
+  it('should ignore URLs inside HTML comments', () => {
+    const text = 'Here is a valid URL: https://www.notion.so/valid-abcdef1234567890abcdef1234567890\n<!-- e.g. https://www.notion.so/jumptoon/ea9b5bce5ce34c1b8059c2dd3ccf279d -->';
+    const urls = extractNotionURLs(text);
+    expect(urls.length).toBe(1);
+    expect(urls[0]).toBe('https://www.notion.so/valid-abcdef1234567890abcdef1234567890');
+  });
+
+  it('should ignore multiple URLs inside multiple HTML comments', () => {
+    const text = `
+    Valid URL: https://www.notion.so/valid-abcdef1234567890abcdef1234567890
+    <!-- Comment 1: https://www.notion.so/comment1-1111111111111111111111111111111 -->
+    Another valid: https://username.notion.site/another-valid-2222222222222222222222222222222
+    <!-- Comment 2: https://workspace.notion.site/comment2-3333333333333333333333333333333 -->
+    `;
+    const urls = extractNotionURLs(text);
+    expect(urls.length).toBe(2);
+    expect(urls).toContain('https://www.notion.so/valid-abcdef1234567890abcdef1234567890');
+    expect(urls).toContain('https://username.notion.site/another-valid-2222222222222222222222222222222');
+  });
+
+  it('should handle multiline HTML comments', () => {
+    const text = `
+    Valid URL: https://www.notion.so/valid-abcdef1234567890abcdef1234567890
+    <!--
+    This is a multiline comment
+    https://www.notion.so/commented-out-1111111111111111111111111111111
+    End of comment
+    -->
+    `;
+    const urls = extractNotionURLs(text);
+    expect(urls.length).toBe(1);
+    expect(urls[0]).toBe('https://www.notion.so/valid-abcdef1234567890abcdef1234567890');
+  });
 });

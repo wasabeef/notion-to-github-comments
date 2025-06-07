@@ -1,19 +1,55 @@
-name: Create GitHub Release
+name: Create Release
 
 on:
   push:
     tags:
-      - 'v*.*.*' # Trigger on tags like vX.Y.Z
+      - 'v*.*.*' # Trigger on existing tags
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v1.2.0)'
+        required: true
+        type: string
+      release_notes:
+        description: 'Custom release notes (optional)'
+        required: false
+        type: string
+      draft:
+        description: 'Create as draft release'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Needed by softprops/action-gh-release to create a release
+      contents: write
     steps:
-      - name: Checkout code
+      - name: Checkout main branch
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && 'main' || github.ref }}
+          fetch-depth: 0
+
+      - name: Validate version format (manual run only)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [[ ! "${{ github.event.inputs.version }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "❌ Invalid version format. Use format: v1.2.3"
+            exit 1
+          fi
+          echo "✅ Version format is valid: ${{ github.event.inputs.version }}"
+
+      - name: Check if tag already exists (manual run only)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if git tag -l | grep -q "^${{ github.event.inputs.version }}$"; then
+            echo "❌ Tag ${{ github.event.inputs.version }} already exists"
+            exit 1
+          fi
+          echo "✅ Tag ${{ github.event.inputs.version }} is available"
 
       - name: Import .tool-versions
         uses: wasabeef/import-asdf-tool-versions-action@v1.1.0
@@ -27,18 +63,58 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Run tests
+        run: bun run test
+
+      - name: Run linter  
+        run: bun run lint
+
       - name: Build for release
         run: bun run build
+
+      - name: Create tag (manual run only)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action [release]"
+          
+          echo "Creating tag ${{ github.event.inputs.version }}..."
+          git tag -a ${{ github.event.inputs.version }} -m "Release ${{ github.event.inputs.version }}
+          
+          ${{ github.event.inputs.release_notes || 'Automated release from main branch' }}
+          
+          Created: $(date)
+          Commit: $(git rev-parse HEAD)"
+          
+          echo "Pushing tag..."
+          git push origin ${{ github.event.inputs.version }}
+          
+          echo "✅ Tag ${{ github.event.inputs.version }} created and pushed!"
+
+      - name: Set release variables
+        id: release_vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            echo "is_draft=${{ github.event.inputs.draft }}" >> $GITHUB_OUTPUT
+            echo "custom_notes=${{ github.event.inputs.release_notes }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "is_draft=false" >> $GITHUB_OUTPUT
+            echo "custom_notes=" >> $GITHUB_OUTPUT
+          fi
 
       - name: Commit and push dist files
         run: |
           git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          git config --local user.name "GitHub Action [release]"
           git add -f dist/
-          git commit -m "build: add dist files for release ${{ github.ref_name }}"
-          git tag -d ${{ github.ref_name }}
-          git tag ${{ github.ref_name }}
-          git push --force origin ${{ github.ref_name }}
+          git commit -m "build: add dist files for release ${{ steps.release_vars.outputs.version }}"
+          
+          # Update the tag to include dist/ files
+          git tag -d ${{ steps.release_vars.outputs.version }} 2>/dev/null || true
+          git tag ${{ steps.release_vars.outputs.version }}
+          git push --force origin ${{ steps.release_vars.outputs.version }}
 
       - name: Create GitHub Release
         id: create_release
@@ -46,15 +122,25 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: Release ${{ github.ref_name }}
-          generate_release_notes: true
-          draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          tag_name: ${{ steps.release_vars.outputs.version }}
+          name: Release ${{ steps.release_vars.outputs.version }}
+          draft: ${{ steps.release_vars.outputs.is_draft }}
+          prerelease: ${{ contains(steps.release_vars.outputs.version, '-') }}
+          generate_release_notes: ${{ steps.release_vars.outputs.custom_notes == '' }}
           body: |
-            🎉 **Notion to GitHub Comments ${{ github.ref_name }}**
+            🎉 **Notion to GitHub Comments ${{ steps.release_vars.outputs.version }}**
             
             A GitHub Action that extracts Notion page and database URLs from Pull Request descriptions and posts their content as formatted, AI-ready comments.
             
-            ## 📋 What's New
+            ${{ steps.release_vars.outputs.custom_notes != '' && steps.release_vars.outputs.custom_notes || '## 📋 What\'s New\n\nAutomatic release notes generated below.' }}
             
-            ${{ steps.create_release.outputs.body }} 
+            ---
+            
+            ### 🚀 How to Use This Version
+            
+            ```yaml
+            - uses: wasabeef/notion-to-github-comments@${{ steps.release_vars.outputs.version }}
+              with:
+                notion-token: ${{ '${{ secrets.NOTION_TOKEN }}' }}
+                github-token: ${{ '${{ secrets.GITHUB_TOKEN }}' }}
+            ``` 
