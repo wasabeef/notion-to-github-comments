@@ -1,0 +1,78 @@
+name: Auto Build for Development
+
+on:
+  push:
+    branches:
+      - develop
+      - 'feat-**'
+      - 'feat/**'
+      - 'feature-**'
+      - 'feature/**'
+      - 'fix-**'
+      - 'fix/**'
+      - 'refactor-**'
+      - 'refactor/**'
+      - 'chore-**'
+      - 'chore/**'
+      - 'docs-**'
+      - 'docs/**'
+      - 'test-**'
+      - 'test/**'
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: 'Force build dist/ files'
+        required: false
+        default: 'false'
+
+jobs:
+  auto-build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+
+    - name: Import .tool-versions
+      uses: wasabeef/import-asdf-tool-versions-action@v1.1.0
+      id: asdf
+
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v1
+      with:
+        bun-version: ${{ steps.asdf.outputs.bun }}
+
+    - name: Install dependencies
+      run: bun install
+
+    - name: Build
+      run: bun run build
+
+    - name: Check if dist/ has changes
+      id: check_changes
+      run: |
+        git add -f dist/
+        if git diff --cached --quiet; then
+          echo "has_changes=false" >> $GITHUB_OUTPUT
+          echo "No changes in dist/"
+        else
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+          echo "Changes detected in dist/"
+        fi
+
+    - name: Commit and push dist files
+      if: steps.check_changes.outputs.has_changes == 'true' || github.event.inputs.force_build == 'true'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action [auto-build]"
+        git add -f dist/
+        git commit -m "build: auto-update dist/ files [skip ci]
+
+        Generated from commit: ${{ github.sha }}
+        Branch: ${{ github.ref_name }}
+        Workflow: ${{ github.workflow }}"
+        git push

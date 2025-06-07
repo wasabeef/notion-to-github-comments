@@ -1,7 +1,3 @@
-/**
- * Notion URL extraction functionality
- */
-
 // Notion URL Specifications:
 // Notion URLs can take several forms:
 // 1. Standard Notion domain:
@@ -27,59 +23,68 @@
 
 // Regex patterns organized by purpose
 
-// 1. Basic URL extraction - captures any HTTP/HTTPS URL
+// 1. HTML comment detection and removal - removes HTML comments (including multiline)
+const HTML_COMMENT_REGEX = /<!--[\s\S]*?-->/g;
+
+// 2. Basic URL extraction - captures any HTTP/HTTPS URL
 const ALL_URLS_REGEX = /https?:\/\/[^\s]+/gi;
 
-// 2. Trailing punctuation cleanup - removes common punctuation from URL end
+// 3. Trailing punctuation cleanup - removes common punctuation from URL end
 const TRAILING_PUNCTUATION_REGEX = /[.,;!?)]+$/;
 
-// 3. Query parameter detection - checks if URL has ?p= or ?page_id= with valid Notion ID
-const QUERY_PARAM_DETECTION_REGEX = /[?&](?:p|page_id)=([a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/;
+// 4. Query parameter detection - checks if URL has ?p= or ?page_id= with valid Notion ID
+const QUERY_PARAM_DETECTION_REGEX =
+  /[?&](?:p|page_id)=([a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/;
 
-// 4. Query parameter extraction - extracts URL up to and including the Notion ID in query params
-const QUERY_PARAM_EXTRACTION_REGEX = /^(.*[?&](?:p|page_id)=[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|.*[?&](?:p|page_id)=[a-f0-9]{32})/;
+// 5. Query parameter extraction - extracts URL up to and including the Notion ID in query params
+const QUERY_PARAM_EXTRACTION_REGEX =
+  /^(.*[?&](?:p|page_id)=[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|.*[?&](?:p|page_id)=[a-f0-9]{32})/;
 
-// 5. Notion ID validation - matches valid Notion IDs (32 hex chars or UUID format)
-const NOTION_ID_REGEX = /[a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/;
+// 6. Notion ID validation - matches valid Notion IDs (32 hex chars or UUID format)
+const NOTION_ID_REGEX =
+  /[a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/;
 
 /**
- * Extracts Notion URLs from a given text.
- * It identifies URLs pointing to notion.so, notion.site, or containing a Notion page/database ID.
- * Cleans trailing punctuation from URLs and handles Notion IDs in query parameters.
- * @param {string} text The input text to search for Notion URLs.
- * @returns {string[]} An array of unique Notion URLs found in the text.
+ * Extracts Notion URLs from text content with robust parsing
+ * Handles various Notion URL formats including pages, databases, and custom domains
+ * @param text Input text that may contain Notion URLs
+ * @returns Array of cleaned Notion URLs found in the text
  */
 export function extractNotionURLs(text: string): string[] {
   const urls = new Set<string>();
   let match;
-  
-  // Step 1: Extract all URLs from text
+
+  // Step 1: Remove HTML comments from text to avoid extracting URLs from them
+  const textWithoutComments = text.replace(HTML_COMMENT_REGEX, "");
+
+  // Step 2: Extract all URLs from text (without comments)
   ALL_URLS_REGEX.lastIndex = 0;
-  
-  while ((match = ALL_URLS_REGEX.exec(text)) !== null) {
+
+  while ((match = ALL_URLS_REGEX.exec(textWithoutComments)) !== null) {
     if (match[0]) {
       let url = match[0];
-      
-      // Step 2: Clean trailing punctuation
-      url = url.replace(TRAILING_PUNCTUATION_REGEX, '');
-      
-      // Step 3: Handle query parameter URLs - truncate after Notion ID
+
+      // Step 3: Clean trailing punctuation
+      url = url.replace(TRAILING_PUNCTUATION_REGEX, "");
+
+      // Step 4: Handle query parameter URLs - truncate after Notion ID
       if (QUERY_PARAM_DETECTION_REGEX.test(url)) {
         const paramMatch = url.match(QUERY_PARAM_EXTRACTION_REGEX);
         if (paramMatch) {
           url = paramMatch[1];
         }
       }
-      
-      // Step 4: Filter for Notion-related URLs only
-      const isNotionDomain = url.includes('notion.so') || url.includes('notion.site');
+
+      // Step 5: Filter for Notion-related URLs only
+      const isNotionDomain =
+        url.includes("notion.so") || url.includes("notion.site");
       const hasNotionId = NOTION_ID_REGEX.test(url);
-      
+
       if (isNotionDomain || hasNotionId) {
         urls.add(url);
       }
     }
   }
-  
+
   return Array.from(urls);
 }

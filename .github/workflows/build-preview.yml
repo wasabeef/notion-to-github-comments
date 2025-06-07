@@ -1,0 +1,90 @@
+name: Build Preview
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-preview:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Import .tool-versions
+      uses: wasabeef/import-asdf-tool-versions-action@v1.1.0
+      id: asdf
+
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v1
+      with:
+        bun-version: ${{ steps.asdf.outputs.bun }}
+
+    - name: Install dependencies
+      run: bun install
+
+    - name: Build
+      run: bun run build
+
+    - name: Upload build artifacts for download
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-preview-${{ github.event.pull_request.number }}
+        path: dist/
+        retention-days: 7
+
+    - name: Comment PR with build info
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+
+          // Get dist/ file info
+          const distPath = 'dist/';
+          const files = fs.readdirSync(distPath);
+          const fileInfo = files.map(file => {
+            const fullPath = path.join(distPath, file);
+            const stats = fs.statSync(fullPath);
+            return `- \`${file}\` (${(stats.size / 1024).toFixed(1)} KB)`;
+          }).join('\n');
+
+          const branchName = context.payload.pull_request.head.ref;
+          const repoFullName = context.payload.repository.full_name;
+
+          const body = `
+          ## 📦 Build Preview Ready
+
+          ✅ Build completed successfully for commit \`${context.sha.substring(0, 7)}\`
+
+          ### Generated Files:
+          ${fileInfo}
+
+          ### 🧪 Testing This Branch
+
+          **In another repository, use:**
+          \`\`\`yaml
+          - uses: ${repoFullName}@${branchName}
+            with:
+              notion-token: *******
+              github-token: *******
+          \`\`\`
+
+          ### 📥 Download Build Artifacts
+          You can download the built files from the [Actions tab](${context.payload.repository.html_url}/actions/runs/${context.runId}) of this PR.
+
+          ### 🔄 Development Flow
+          1. Test this branch in your target repository
+          2. If working correctly, approve and merge this PR
+          3. Create a release tag to publish stable version
+          `;
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: body
+          });
