@@ -40,10 +40,6 @@ const QUERY_PARAM_DETECTION_REGEX =
 const QUERY_PARAM_EXTRACTION_REGEX =
   /^(.*[?&](?:p|page_id)=[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|.*[?&](?:p|page_id)=[a-f0-9]{32})/;
 
-// 6. Notion ID validation - matches valid Notion IDs (32 hex chars or UUID format)
-const NOTION_ID_REGEX =
-  /[a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/;
-
 /**
  * Extracts Notion URLs from text content with robust parsing
  * Handles various Notion URL formats including pages, databases, and custom domains
@@ -78,9 +74,10 @@ export function extractNotionURLs(text: string): string[] {
       // Step 5: Filter for Notion-related URLs only
       const isNotionDomain =
         url.includes("notion.so") || url.includes("notion.site");
-      const hasNotionId = NOTION_ID_REGEX.test(url);
 
-      if (isNotionDomain || hasNotionId) {
+      // Only add URLs that have a Notion domain AND optionally a Notion ID
+      // This prevents false positives from other services that happen to have similar ID patterns
+      if (isNotionDomain) {
         urls.add(url);
       }
     }
