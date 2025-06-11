@@ -92,22 +92,53 @@ describe('extractNotionURLs', () => {
     expect(urls[0]).toBe('https://www.notion.site/whatever/slug?page_id=12345678-1234-5678-1234-1234567890ab');
   });
 
-  it('should handle custom domain like URLs if they contain a Notion ID', () => {
+  it('should NOT extract custom domain URLs even if they contain a Notion-like ID', () => {
     const text = 'Custom: https://notes.example.com/my-great-doc-abcdef1234567890abcdef1234567890';
     const urls = extractNotionURLs(text);
-    expect(urls.length).toBe(1);
-    expect(urls[0]).toBe('https://notes.example.com/my-great-doc-abcdef1234567890abcdef1234567890');
+    expect(urls.length).toBe(0);
   });
 
-  it('should handle custom domain like URLs with hyphenated UUIDs', () => {
+  it('should NOT extract custom domain URLs with hyphenated UUIDs', () => {
     const text = 'Custom UUID: https://docs.anotherexample.co.uk/page-slug-12345678-aaaa-bbbb-cccc-1234567890ab?query=true';
     const urls = extractNotionURLs(text);
-    expect(urls.length).toBe(1);
-    expect(urls[0]).toBe('https://docs.anotherexample.co.uk/page-slug-12345678-aaaa-bbbb-cccc-1234567890ab?query=true');
+    expect(urls.length).toBe(0);
+  });
+
+  it('should NOT extract GitHub URLs with similar ID patterns', () => {
+    const text = 'GitHub link: https://github.com/example/repo/blob/abcdef1234567890abcdef1234567890/docs/example.md';
+    const urls = extractNotionURLs(text);
+    expect(urls.length).toBe(0);
+  });
+
+  it('should NOT extract other service URLs with UUID-like patterns', () => {
+    const text = `
+      Google Drive: https://drive.google.com/file/d/1234567890abcdef1234567890abcdef/view
+      Dropbox: https://www.dropbox.com/s/abcdef1234567890abcdef1234567890/file.pdf
+      Generic: https://example.com/files/12345678-1234-5678-1234-567890abcdef
+    `;
+    const urls = extractNotionURLs(text);
+    expect(urls.length).toBe(0);
+  });
+
+  it('should NOT extract other common service URLs with hex patterns', () => {
+    const text = `
+      GitLab: https://gitlab.com/project/repo/-/commit/fedcba9876543210abcdef1234567890
+      Bitbucket: https://bitbucket.org/workspace/repo/commits/0123456789abcdef0123456789abcdef
+      AWS S3: https://s3.amazonaws.com/bucket/folder/abcdef1234567890abcdef1234567890/file.pdf
+      Azure: https://myaccount.blob.core.windows.net/container/12345678-90ab-cdef-1234-567890abcdef
+      Slack: https://files.slack.com/files-pri/T12345678-F1234567890abcdef1234567890abcdef/file.png
+      Trello: https://trello.com/c/aBcDeFgH/123-card-name-with-1234567890abcdef1234567890abcdef
+      Jira: https://example.atlassian.net/browse/PROJ-1234?focusedCommentId=12345678-1234-1234-1234-123456789abc
+      Confluence: https://example.atlassian.net/wiki/spaces/SPACE/pages/1234567890/Page+Title+abcdef1234567890
+      MongoDB: https://cloud.mongodb.com/v2/1234567890abcdef1234567890abcdef#clusters
+      Firebase: https://console.firebase.google.com/project/my-project-1234567890abcdef/database/data
+    `;
+    const urls = extractNotionURLs(text);
+    expect(urls.length).toBe(0);
   });
 
   it('should ignore URLs inside HTML comments', () => {
-    const text = 'Here is a valid URL: https://www.notion.so/valid-abcdef1234567890abcdef1234567890\n<!-- e.g. https://www.notion.so/jumptoon/ea9b5bce5ce34c1b8059c2dd3ccf279d -->';
+    const text = 'Here is a valid URL: https://www.notion.so/valid-abcdef1234567890abcdef1234567890\n<!-- e.g. https://www.notion.so/workspace/1234567890abcdef1234567890abcdef -->';
     const urls = extractNotionURLs(text);
     expect(urls.length).toBe(1);
     expect(urls[0]).toBe('https://www.notion.so/valid-abcdef1234567890abcdef1234567890');
