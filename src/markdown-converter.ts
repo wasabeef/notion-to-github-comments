@@ -1,3 +1,35 @@
+/**
+ * @fileoverview Notion to Markdown Converter
+ * 
+ * This module provides comprehensive conversion functionality from Notion's
+ * block-based content structure to GitHub-flavored Markdown. It handles
+ * all standard Notion block types with proper formatting preservation.
+ * 
+ * **Key Features:**
+ * - Rich text formatting with annotations (bold, italic, code, etc.)
+ * - Hierarchical structure preservation with proper indentation
+ * - Special handling for tables, code blocks, and nested content
+ * - Context-aware conversion for different block types
+ * - Child page expansion with configurable depth
+ * 
+ * **Supported Block Types:**
+ * - Text blocks: paragraph, headings (h1-h3), quote, callout
+ * - List blocks: bulleted, numbered, todo, toggle
+ * - Code blocks with language detection and captions
+ * - Tables with proper column alignment
+ * - Child pages and databases
+ * - Embeds and link previews
+ * 
+ * **Conversion Strategy:**
+ * - Maintains visual hierarchy through indentation
+ * - Preserves list continuity and numbering
+ * - Handles nested structures (toggles, lists)
+ * - Escapes special characters for Markdown compatibility
+ * 
+ * @module markdown-converter
+ * @requires @notionhq/client
+ */
+
 import {
   BlockObjectResponse,
   RichTextItemResponse,
@@ -20,6 +52,11 @@ import {
 } from "@notionhq/client/build/src/api-endpoints";
 import type { NotionClient } from "./notion-client";
 
+/**
+ * Markdown formatting constants used throughout the conversion process.
+ * These constants ensure consistent formatting across all conversions.
+ * @constant
+ */
 const MARKDOWN_CONSTANTS = {
   NEWLINE: "\n",
   INDENT: "  ",
@@ -36,6 +73,20 @@ const MARKDOWN_CONSTANTS = {
   TRIPLE_NEWLINE: "\n\n\n",
 } as const;
 
+/**
+ * Conversion context type that determines how rich text is formatted.
+ * Different contexts require different handling of special characters and formatting.
+ * 
+ * @typedef {Object} ConversionContext
+ * @property {string} type - The context type identifier
+ * 
+ * Context Types:
+ * - `standard`: Default formatting with full annotation support
+ * - `mermaidContent`: Preserves newlines for Mermaid diagrams
+ * - `codeBlockContent`: No formatting, preserves raw text
+ * - `codeBlockCaption`: Standard formatting for code captions
+ * - `tableCell`: Escapes pipes and converts newlines to `<br>`
+ */
 export type ConversionContext =
   | { type: "standard" }
   | { type: "mermaidContent" }
@@ -44,10 +95,47 @@ export type ConversionContext =
   | { type: "tableCell" };
 
 /**
- * Converts Notion rich text array to Markdown string with context-aware formatting
- * @param richTextArr Array of Notion rich text items
- * @param context Conversion context that determines formatting behavior
- * @returns Formatted Markdown string
+ * Converts Notion rich text array to Markdown string with context-aware formatting.
+ * 
+ * This function is the core text processing unit that handles all rich text
+ * conversions throughout the module. It applies different formatting rules
+ * based on the conversion context.
+ * 
+ * **Formatting Rules by Context:**
+ * 
+ * - **Standard**: Full annotation support (bold, italic, code, etc.)
+ * - **Mermaid Content**: Preserves exact newline formatting for diagrams
+ * - **Code Block Content**: No formatting applied, raw text only
+ * - **Code Block Caption**: Standard formatting for code descriptions
+ * - **Table Cell**: Escapes pipes, converts newlines to `<br>` tags
+ * 
+ * **Annotation Handling:**
+ * - Bold: `**text**`
+ * - Italic: `_text_`
+ * - Strikethrough: `~~text~~`
+ * - Code: `` `text` ``
+ * - Underline: `<u>text</u>` (HTML tag)
+ * - Links: `[text](url)` with escaped underscores
+ * 
+ * **Special Character Handling:**
+ * - Backslash-n (\n) converted to proper newlines or `<br>` based on context
+ * - Pipe characters (|) escaped in table cells
+ * - Underscores in URLs escaped to prevent italic conflicts
+ * 
+ * @param {RichTextItemResponse[]} richTextArr - Array of Notion rich text items
+ * @param {ConversionContext} context - Conversion context determining formatting rules
+ * @returns {string} Formatted Markdown string
+ * 
+ * @example
+ * ```typescript
+ * // Standard text with bold
+ * richTextArrayToMarkdown([{plain_text: "Hello", annotations: {bold: true}}], {type: "standard"})
+ * // Returns: "**Hello**"
+ * 
+ * // Table cell with special characters
+ * richTextArrayToMarkdown([{plain_text: "A|B\nC"}], {type: "tableCell"})
+ * // Returns: "A\\|B<br>C"
+ * ```
  */
 export const richTextArrayToMarkdown = (
   richTextArr: RichTextItemResponse[],
@@ -105,13 +193,35 @@ export const richTextArrayToMarkdown = (
     .join("");
 };
 
+/**
+ * Details of a child page when expanded within parent content.
+ * Contains all necessary information to render the child page inline.
+ * 
+ * @interface ChildPageDetail
+ * @property {string} title - The title of the child page
+ * @property {string|null} icon - Emoji or image URL for the page icon
+ * @property {AugmentedBlockObjectResponse[]} blocks - All blocks within the child page
+ * @property {PageObjectResponse} page - Full page object including properties
+ */
 export interface ChildPageDetail {
   title: string;
   icon: string | null;
   blocks: AugmentedBlockObjectResponse[];
-  page: PageObjectResponse; // Include the full page object for properties
+  page: PageObjectResponse;
 }
 
+/**
+ * Internal context passed during block conversion.
+ * Maintains state needed for proper formatting across block types.
+ * 
+ * @interface BlockConversionContext
+ * @property {string} indentText - Precomputed indentation string
+ * @property {ConversionContext} standardContext - Default conversion context
+ * @property {Object} listCounters - Tracks numbering for ordered lists by level
+ * @property {number[]} openToggleIndents - Stack of open toggle indentation levels
+ * @property {NotionClient} [notionClient] - Optional client for fetching child pages
+ * @private
+ */
 interface BlockConversionContext {
   indentText: string;
   standardContext: ConversionContext;
@@ -120,6 +230,16 @@ interface BlockConversionContext {
   notionClient?: NotionClient;
 }
 
+/**
+ * Augmented Notion block with additional metadata for conversion.
+ * Extends the standard block with indentation and expansion tracking.
+ * 
+ * @typedef {Object} AugmentedBlockObjectResponse
+ * @extends BlockObjectResponse
+ * @property {number} _indentationLevel - Visual indentation level (0-based)
+ * @property {ChildPageDetail} [child_page_details] - Expanded child page content
+ * @property {boolean} [_isExpanded] - Whether child page was successfully expanded
+ */
 export type AugmentedBlockObjectResponse = BlockObjectResponse & {
   _indentationLevel: number;
   child_page_details?: ChildPageDetail;
@@ -127,9 +247,39 @@ export type AugmentedBlockObjectResponse = BlockObjectResponse & {
 };
 
 /**
- * Converts Notion page properties to Markdown table format
- * @param properties Page properties object from Notion API
- * @returns Markdown table representation of properties
+ * Converts Notion page properties to a Markdown table.
+ * 
+ * Creates a two-column table displaying all page properties with their values.
+ * Handles various property types with appropriate formatting.
+ * 
+ * **Property Type Handling:**
+ * - Title: Plain text or rich text (supports multiple languages)
+ * - Rich Text: Full formatting support
+ * - Numbers: Displayed as-is
+ * - Select/Multi-select: Single or comma-separated values
+ * - Dates: Start date with optional end date (arrow notation)
+ * - People: Names or IDs
+ * - Files: Comma-separated file names
+ * - Checkbox: Visual checkmarks (✅/⬜)
+ * - URLs/Email/Phone: Displayed as-is
+ * - Formulas/Rollups: Type-specific formatting
+ * 
+ * **Special Cases:**
+ * - Title detection supports multiple languages (English, Japanese)
+ * - Empty values result in empty cells
+ * - Unknown property types show as `[type]`
+ * 
+ * @param {PageObjectResponse["properties"]} properties - Page properties from Notion API
+ * @returns {string} Markdown table with Property and Value columns
+ * 
+ * @example
+ * ```markdown
+ * | Property | Value |
+ * | --- | --- |
+ * | Title | My Page |
+ * | Status | Published |
+ * | Date | 2024-01-01 |
+ * ```
  */
 export const pagePropertiesToMarkdown = (
   properties: PageObjectResponse["properties"],
@@ -838,12 +988,42 @@ const addBlockSpacing = (
 };
 
 /**
- * Converts a single Notion block to Markdown format
- * @param block Augmented Notion block with indentation level
- * @param listCounters Counter object for numbered lists by level
- * @param openToggleIndents Array of open toggle indentation levels
- * @param notionClient Optional Notion client for child page fetching
- * @returns Markdown representation of the block
+ * Converts a single Notion block to its Markdown representation.
+ * 
+ * This is the main block conversion dispatcher that routes each block type
+ * to its appropriate handler. Maintains conversion state across blocks.
+ * 
+ * **Block Type Support:**
+ * - Text: paragraph, headings, quote, callout
+ * - Lists: bulleted, numbered, todo, toggle
+ * - Code: with language detection and captions
+ * - Structure: divider, child pages, databases
+ * - Media: embeds, link previews (images excluded)
+ * - Special: tables handled separately
+ * 
+ * **State Management:**
+ * - Tracks numbered list counters per indentation level
+ * - Maintains toggle expansion state
+ * - Preserves indentation hierarchy
+ * 
+ * **Unsupported Blocks:**
+ * - Synced blocks: Show as `[Unsupported Block Type]`
+ * - Unknown types: Show as `[Unexpected Block Type]`
+ * - Images: Silently skipped (empty string)
+ * 
+ * @param {AugmentedBlockObjectResponse} block - Block with indentation metadata
+ * @param {Object} listCounters - Numbered list counters by level and type
+ * @param {number[]} openToggleIndents - Stack of open toggle indentation levels
+ * @param {NotionClient} [notionClient] - Optional client for child page expansion
+ * @returns {string} Markdown representation of the block
+ * 
+ * @example
+ * ```typescript
+ * // Convert a heading block
+ * const block = {type: "heading_1", heading_1: {rich_text: [...]}}
+ * blockToMarkdown(block, {}, [], client)
+ * // Returns: "# Heading Text\n"
+ * ```
  */
 export const blockToMarkdown = (
   block: AugmentedBlockObjectResponse,
@@ -969,12 +1149,43 @@ export const blockToMarkdown = (
 };
 
 /**
- * Converts an array of Notion blocks to complete Markdown document
- * @param blocks Array of augmented Notion blocks
- * @param page Optional page object for properties table
- * @param notionClient Optional Notion client for child page processing
- * @param initialIndentLevel Starting indentation level
- * @returns Complete Markdown document
+ * Converts an array of Notion blocks to a complete Markdown document.
+ * 
+ * This is the main entry point for full document conversion. It orchestrates
+ * the conversion of all blocks while maintaining document structure and state.
+ * 
+ * **Document Structure:**
+ * 1. Page properties table (if provided and at root level)
+ * 2. Block content with proper spacing and indentation
+ * 3. Recursive processing of nested structures
+ * 
+ * **Special Processing:**
+ * - **Tables**: Detected and processed as groups with their rows
+ * - **Lists**: Maintains continuity and proper numbering
+ * - **Spacing**: Intelligent spacing between different block types
+ * - **Indentation**: Preserves visual hierarchy
+ * 
+ * **State Management:**
+ * - List counters persist across the document
+ * - Toggle states tracked for proper nesting
+ * - Block spacing rules applied consistently
+ * 
+ * **Error Handling:**
+ * - Returns error message on conversion failure
+ * - Continues processing despite individual block errors
+ * 
+ * @param {AugmentedBlockObjectResponse[]} blocks - Array of blocks to convert
+ * @param {PageObjectResponse} [page] - Optional page object for properties
+ * @param {NotionClient} [notionClient] - Optional client for child pages
+ * @param {number} [initialIndentLevel=0] - Starting indentation offset
+ * @returns {string} Complete Markdown document with proper formatting
+ * 
+ * @example
+ * ```typescript
+ * const blocks = await notionClient.getAllBlockChildren(pageId);
+ * const markdown = blocksToMarkdown(blocks, pageObject, notionClient);
+ * // Returns complete formatted document
+ * ```
  */
 export function blocksToMarkdown(
   blocks: AugmentedBlockObjectResponse[],

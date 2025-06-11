@@ -31281,6 +31281,27 @@ function wrappy (fn, cb) {
 
 "use strict";
 
+/**
+ * @fileoverview GitHub API Client for Comment Management
+ *
+ * This module provides a specialized GitHub API client for managing
+ * pull request comments containing Notion content. It handles the
+ * complete lifecycle of comments including creation, updates, and deletion.
+ *
+ * **Key Features:**
+ * - Automatic detection of existing comments using hidden markers
+ * - Idempotent comment updates (prevents duplicates)
+ * - Clean comment deletion when no Notion URLs are found
+ * - Full GitHub Actions context integration
+ *
+ * **Comment Identification:**
+ * Uses HTML comments as hidden markers to identify comments created
+ * by this action, allowing reliable updates without duplicates.
+ *
+ * @module github-client
+ * @requires @actions/github
+ * @requires @actions/core
+ */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -31318,23 +31339,72 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.GithubClient = void 0;
 const github = __importStar(__nccwpck_require__(3228));
 const core = __importStar(__nccwpck_require__(7484));
+/**
+ * Hidden HTML comment marker used to identify comments created by this action.
+ * This marker is appended to all comments and used for finding existing comments
+ * to update rather than creating duplicates.
+ * @constant {string}
+ */
 const HIDDEN_MARKER = "<!-- NOTION_TO_GITHUB_COMMENTS -->";
 /**
- * GitHub client for managing pull request comments
- * Handles creating, updating, and deleting comments with Notion context
+ * GitHub API client for managing PR comments with Notion content.
+ *
+ * This class encapsulates all GitHub API interactions for comment management,
+ * providing methods to create, update, find, and delete comments on pull requests.
+ *
+ * **Authentication:**
+ * Requires a GitHub token with `pull-requests: write` permission.
+ *
+ * **Comment Management Strategy:**
+ * - Uses hidden HTML markers to track comments
+ * - Updates existing comments instead of creating new ones
+ * - Deletes comments when no Notion content is available
+ *
+ * @class
+ * @example
+ * ```typescript
+ * const client = new GithubClient(process.env.GITHUB_TOKEN);
+ * const existingId = await client.findExistingComment();
+ * if (existingId) {
+ *   await client.updateExistingComment(existingId, newContent);
+ * } else {
+ *   await client.postNewComment(newContent);
+ * }
+ * ```
  */
 class GithubClient {
     /**
-     * Initializes the GitHub client with authentication token
-     * @param token GitHub token for API authentication
+     * Initializes the GitHub API client with authentication.
+     *
+     * Creates an authenticated Octokit instance and captures the current
+     * GitHub Actions context for repository and issue information.
+     *
+     * **Required Token Permissions:**
+     * - `pull-requests: write` - To create and update PR comments
+     * - `issues: write` - For issue comment operations (PRs are issues)
+     *
+     * @param {string} token - GitHub personal access token or GITHUB_TOKEN
+     * @constructor
      */
     constructor(token) {
         this.octokit = github.getOctokit(token);
         this.context = github.context;
     }
     /**
-     * Searches for existing comment created by this action
-     * @returns Comment ID if found, null otherwise
+     * Searches for an existing comment created by this action.
+     *
+     * Scans through all comments on the current PR/issue to find one that:
+     * 1. Was created by the github-actions bot
+     * 2. Contains the hidden marker identifying it as a Notion comment
+     *
+     * This prevents duplicate comments by allowing updates to existing ones.
+     *
+     * **Search Criteria:**
+     * - User: `github-actions[bot]`
+     * - Body contains: `<!-- NOTION_TO_GITHUB_COMMENTS -->`
+     *
+     * @returns {Promise<number|null>} Comment ID if found, null if no existing comment
+     * @async
      */
     async findExistingComment() {
         const { owner, repo } = this.context.repo;
@@ -31348,9 +31418,19 @@ class GithubClient {
             c.body?.includes(HIDDEN_MARKER))?.id || null);
     }
     /**
-     * Creates a new comment on the pull request
-     * @param body Comment content in Markdown format
-     * @returns URL of the created comment
+     * Creates a new comment on the pull request.
+     *
+     * Posts a new comment with the provided Markdown content and appends
+     * the hidden marker for future identification. The comment appears
+     * immediately on the PR.
+     *
+     * **Comment Structure:**
+     * - User-visible content (Markdown formatted)
+     * - Hidden HTML marker (invisible to users)
+     *
+     * @param {string} body - Comment content in GitHub-flavored Markdown
+     * @returns {Promise<string|undefined>} URL of the created comment
+     * @async
      */
     async postNewComment(body) {
         const { owner, repo } = this.context.repo;
@@ -31364,10 +31444,20 @@ class GithubClient {
         return response.data.html_url;
     }
     /**
-     * Updates an existing comment with new content
-     * @param commentId ID of the comment to update
-     * @param body New comment content in Markdown format
-     * @returns URL of the updated comment
+     * Updates an existing comment with new content.
+     *
+     * Replaces the entire content of an existing comment while preserving
+     * the comment ID and position in the PR timeline. The hidden marker
+     * is re-appended to maintain identification.
+     *
+     * **Use Case:**
+     * When Notion URLs change in the PR description, this method updates
+     * the existing comment instead of creating a new one.
+     *
+     * @param {number} commentId - ID of the comment to update
+     * @param {string} body - New comment content in GitHub-flavored Markdown
+     * @returns {Promise<string|undefined>} URL of the updated comment
+     * @async
      */
     async updateExistingComment(commentId, body) {
         const { owner, repo } = this.context.repo;
@@ -31380,8 +31470,19 @@ class GithubClient {
         return response.data.html_url;
     }
     /**
-     * Deletes a comment from the pull request
-     * @param commentId ID of the comment to delete
+     * Deletes a comment from the pull request.
+     *
+     * Permanently removes a comment from the PR. Used when no Notion URLs
+     * are found in the PR description to clean up outdated comments.
+     *
+     * **Deletion Scenarios:**
+     * - All Notion URLs removed from PR description
+     * - PR description cleared or replaced
+     * - Manual cleanup requested
+     *
+     * @param {number} commentId - ID of the comment to delete
+     * @returns {Promise<void>} Resolves when deletion is complete
+     * @async
      */
     async deleteComment(commentId) {
         const { owner, repo } = this.context.repo;
@@ -31403,6 +31504,37 @@ exports.GithubClient = GithubClient;
 
 "use strict";
 
+/**
+ * @fileoverview GitHub Action Entry Point
+ *
+ * This module serves as the main entry point for the notion-to-github-comments GitHub Action.
+ * It orchestrates the entire workflow of extracting Notion URLs from PR descriptions,
+ * fetching their content via the Notion API, converting to Markdown, and posting the
+ * formatted content as PR comments.
+ *
+ * **Workflow Steps:**
+ * 1. Retrieve PR/Issue body from GitHub context
+ * 2. Extract all Notion URLs using pattern matching
+ * 3. Fetch content from each Notion page/database
+ * 4. Convert Notion blocks to GitHub-flavored Markdown
+ * 5. Post or update PR comment with formatted content
+ *
+ * **Required Inputs:**
+ * - `notion-token`: Notion integration token with read access
+ * - `github-token`: GitHub token with `pull-requests: write` permission
+ *
+ * **Outputs:**
+ * - `comment-url`: URL of the created/updated PR comment
+ *
+ * **Error Handling:**
+ * - Individual URL failures don't stop the entire process
+ * - Failed URLs are displayed with error messages in the comment
+ * - Action fails only on critical errors (missing tokens, API failures)
+ *
+ * @module index
+ * @requires @actions/core
+ * @requires @actions/github
+ */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -31443,9 +31575,33 @@ const url_extractor_1 = __nccwpck_require__(9143);
 const notion_client_1 = __nccwpck_require__(1128);
 const github_client_1 = __nccwpck_require__(7890);
 /**
- * Main entry point for the GitHub Action
- * Extracts Notion URLs from PR descriptions, fetches their content, and posts/updates comments
- * with the converted Markdown content
+ * Main execution function for the GitHub Action.
+ *
+ * Processes the workflow of extracting Notion URLs from PR/Issue descriptions
+ * and posting their content as formatted comments.
+ *
+ * **Process Flow:**
+ * 1. **Authentication**: Validates and retrieves required tokens
+ * 2. **URL Extraction**: Finds all Notion URLs in PR/Issue body
+ * 3. **Content Fetching**: Retrieves each Notion page/database content
+ * 4. **Comment Management**: Creates new or updates existing PR comment
+ * 5. **Cleanup**: Deletes existing comment if no URLs found
+ *
+ * **Comment Format:**
+ * - Header with processing status (X success, Y errors)
+ * - Collapsible sections for each Notion URL
+ * - Icons indicating page type (📄 page, 🗃️ database, ⚠️ error)
+ * - Direct links to original Notion pages
+ * - Markdown-formatted content with preserved structure
+ *
+ * **Error Recovery:**
+ * - Continues processing remaining URLs if one fails
+ * - Displays error message for failed URLs
+ * - Tracks success/error count for status reporting
+ *
+ * @async
+ * @returns {Promise<void>} Completes when comment is posted or action fails
+ * @throws {Error} Critical errors are caught and reported via core.setFailed()
  */
 async function run() {
     try {
@@ -31534,9 +31690,45 @@ run();
 
 "use strict";
 
+/**
+ * @fileoverview Notion to Markdown Converter
+ *
+ * This module provides comprehensive conversion functionality from Notion's
+ * block-based content structure to GitHub-flavored Markdown. It handles
+ * all standard Notion block types with proper formatting preservation.
+ *
+ * **Key Features:**
+ * - Rich text formatting with annotations (bold, italic, code, etc.)
+ * - Hierarchical structure preservation with proper indentation
+ * - Special handling for tables, code blocks, and nested content
+ * - Context-aware conversion for different block types
+ * - Child page expansion with configurable depth
+ *
+ * **Supported Block Types:**
+ * - Text blocks: paragraph, headings (h1-h3), quote, callout
+ * - List blocks: bulleted, numbered, todo, toggle
+ * - Code blocks with language detection and captions
+ * - Tables with proper column alignment
+ * - Child pages and databases
+ * - Embeds and link previews
+ *
+ * **Conversion Strategy:**
+ * - Maintains visual hierarchy through indentation
+ * - Preserves list continuity and numbering
+ * - Handles nested structures (toggles, lists)
+ * - Escapes special characters for Markdown compatibility
+ *
+ * @module markdown-converter
+ * @requires @notionhq/client
+ */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.blockToMarkdown = exports.pagePropertiesToMarkdown = exports.richTextArrayToMarkdown = void 0;
 exports.blocksToMarkdown = blocksToMarkdown;
+/**
+ * Markdown formatting constants used throughout the conversion process.
+ * These constants ensure consistent formatting across all conversions.
+ * @constant
+ */
 const MARKDOWN_CONSTANTS = {
     NEWLINE: "\n",
     INDENT: "  ",
@@ -31553,10 +31745,47 @@ const MARKDOWN_CONSTANTS = {
     TRIPLE_NEWLINE: "\n\n\n",
 };
 /**
- * Converts Notion rich text array to Markdown string with context-aware formatting
- * @param richTextArr Array of Notion rich text items
- * @param context Conversion context that determines formatting behavior
- * @returns Formatted Markdown string
+ * Converts Notion rich text array to Markdown string with context-aware formatting.
+ *
+ * This function is the core text processing unit that handles all rich text
+ * conversions throughout the module. It applies different formatting rules
+ * based on the conversion context.
+ *
+ * **Formatting Rules by Context:**
+ *
+ * - **Standard**: Full annotation support (bold, italic, code, etc.)
+ * - **Mermaid Content**: Preserves exact newline formatting for diagrams
+ * - **Code Block Content**: No formatting applied, raw text only
+ * - **Code Block Caption**: Standard formatting for code descriptions
+ * - **Table Cell**: Escapes pipes, converts newlines to `<br>` tags
+ *
+ * **Annotation Handling:**
+ * - Bold: `**text**`
+ * - Italic: `_text_`
+ * - Strikethrough: `~~text~~`
+ * - Code: `` `text` ``
+ * - Underline: `<u>text</u>` (HTML tag)
+ * - Links: `[text](url)` with escaped underscores
+ *
+ * **Special Character Handling:**
+ * - Backslash-n (\n) converted to proper newlines or `<br>` based on context
+ * - Pipe characters (|) escaped in table cells
+ * - Underscores in URLs escaped to prevent italic conflicts
+ *
+ * @param {RichTextItemResponse[]} richTextArr - Array of Notion rich text items
+ * @param {ConversionContext} context - Conversion context determining formatting rules
+ * @returns {string} Formatted Markdown string
+ *
+ * @example
+ * ```typescript
+ * // Standard text with bold
+ * richTextArrayToMarkdown([{plain_text: "Hello", annotations: {bold: true}}], {type: "standard"})
+ * // Returns: "**Hello**"
+ *
+ * // Table cell with special characters
+ * richTextArrayToMarkdown([{plain_text: "A|B\nC"}], {type: "tableCell"})
+ * // Returns: "A\\|B<br>C"
+ * ```
  */
 const richTextArrayToMarkdown = (richTextArr, context) => {
     if (!richTextArr)
@@ -31610,9 +31839,39 @@ const richTextArrayToMarkdown = (richTextArr, context) => {
 };
 exports.richTextArrayToMarkdown = richTextArrayToMarkdown;
 /**
- * Converts Notion page properties to Markdown table format
- * @param properties Page properties object from Notion API
- * @returns Markdown table representation of properties
+ * Converts Notion page properties to a Markdown table.
+ *
+ * Creates a two-column table displaying all page properties with their values.
+ * Handles various property types with appropriate formatting.
+ *
+ * **Property Type Handling:**
+ * - Title: Plain text or rich text (supports multiple languages)
+ * - Rich Text: Full formatting support
+ * - Numbers: Displayed as-is
+ * - Select/Multi-select: Single or comma-separated values
+ * - Dates: Start date with optional end date (arrow notation)
+ * - People: Names or IDs
+ * - Files: Comma-separated file names
+ * - Checkbox: Visual checkmarks (✅/⬜)
+ * - URLs/Email/Phone: Displayed as-is
+ * - Formulas/Rollups: Type-specific formatting
+ *
+ * **Special Cases:**
+ * - Title detection supports multiple languages (English, Japanese)
+ * - Empty values result in empty cells
+ * - Unknown property types show as `[type]`
+ *
+ * @param {PageObjectResponse["properties"]} properties - Page properties from Notion API
+ * @returns {string} Markdown table with Property and Value columns
+ *
+ * @example
+ * ```markdown
+ * | Property | Value |
+ * | --- | --- |
+ * | Title | My Page |
+ * | Status | Published |
+ * | Date | 2024-01-01 |
+ * ```
  */
 const pagePropertiesToMarkdown = (properties) => {
     const markdownRows = [];
@@ -32146,12 +32405,42 @@ const addBlockSpacing = (parts, prevBlock, currentBlock) => {
     }
 };
 /**
- * Converts a single Notion block to Markdown format
- * @param block Augmented Notion block with indentation level
- * @param listCounters Counter object for numbered lists by level
- * @param openToggleIndents Array of open toggle indentation levels
- * @param notionClient Optional Notion client for child page fetching
- * @returns Markdown representation of the block
+ * Converts a single Notion block to its Markdown representation.
+ *
+ * This is the main block conversion dispatcher that routes each block type
+ * to its appropriate handler. Maintains conversion state across blocks.
+ *
+ * **Block Type Support:**
+ * - Text: paragraph, headings, quote, callout
+ * - Lists: bulleted, numbered, todo, toggle
+ * - Code: with language detection and captions
+ * - Structure: divider, child pages, databases
+ * - Media: embeds, link previews (images excluded)
+ * - Special: tables handled separately
+ *
+ * **State Management:**
+ * - Tracks numbered list counters per indentation level
+ * - Maintains toggle expansion state
+ * - Preserves indentation hierarchy
+ *
+ * **Unsupported Blocks:**
+ * - Synced blocks: Show as `[Unsupported Block Type]`
+ * - Unknown types: Show as `[Unexpected Block Type]`
+ * - Images: Silently skipped (empty string)
+ *
+ * @param {AugmentedBlockObjectResponse} block - Block with indentation metadata
+ * @param {Object} listCounters - Numbered list counters by level and type
+ * @param {number[]} openToggleIndents - Stack of open toggle indentation levels
+ * @param {NotionClient} [notionClient] - Optional client for child page expansion
+ * @returns {string} Markdown representation of the block
+ *
+ * @example
+ * ```typescript
+ * // Convert a heading block
+ * const block = {type: "heading_1", heading_1: {rich_text: [...]}}
+ * blockToMarkdown(block, {}, [], client)
+ * // Returns: "# Heading Text\n"
+ * ```
  */
 const blockToMarkdown = (block, listCounters, openToggleIndents, notionClient) => {
     const indentText = MARKDOWN_CONSTANTS.INDENT.repeat(block._indentationLevel);
@@ -32225,12 +32514,43 @@ const blockToMarkdown = (block, listCounters, openToggleIndents, notionClient) =
 };
 exports.blockToMarkdown = blockToMarkdown;
 /**
- * Converts an array of Notion blocks to complete Markdown document
- * @param blocks Array of augmented Notion blocks
- * @param page Optional page object for properties table
- * @param notionClient Optional Notion client for child page processing
- * @param initialIndentLevel Starting indentation level
- * @returns Complete Markdown document
+ * Converts an array of Notion blocks to a complete Markdown document.
+ *
+ * This is the main entry point for full document conversion. It orchestrates
+ * the conversion of all blocks while maintaining document structure and state.
+ *
+ * **Document Structure:**
+ * 1. Page properties table (if provided and at root level)
+ * 2. Block content with proper spacing and indentation
+ * 3. Recursive processing of nested structures
+ *
+ * **Special Processing:**
+ * - **Tables**: Detected and processed as groups with their rows
+ * - **Lists**: Maintains continuity and proper numbering
+ * - **Spacing**: Intelligent spacing between different block types
+ * - **Indentation**: Preserves visual hierarchy
+ *
+ * **State Management:**
+ * - List counters persist across the document
+ * - Toggle states tracked for proper nesting
+ * - Block spacing rules applied consistently
+ *
+ * **Error Handling:**
+ * - Returns error message on conversion failure
+ * - Continues processing despite individual block errors
+ *
+ * @param {AugmentedBlockObjectResponse[]} blocks - Array of blocks to convert
+ * @param {PageObjectResponse} [page] - Optional page object for properties
+ * @param {NotionClient} [notionClient] - Optional client for child pages
+ * @param {number} [initialIndentLevel=0] - Starting indentation offset
+ * @returns {string} Complete Markdown document with proper formatting
+ *
+ * @example
+ * ```typescript
+ * const blocks = await notionClient.getAllBlockChildren(pageId);
+ * const markdown = blocksToMarkdown(blocks, pageObject, notionClient);
+ * // Returns complete formatted document
+ * ```
  */
 function blocksToMarkdown(blocks, page, notionClient, initialIndentLevel = 0) {
     try {
@@ -32310,30 +32630,124 @@ function blocksToMarkdown(blocks, page, notionClient, initialIndentLevel = 0) {
 
 "use strict";
 
+/**
+ * @fileoverview Notion API Client
+ *
+ * This module provides a comprehensive client for interacting with the Notion API.
+ * It handles authentication, content fetching, and conversion of Notion blocks to Markdown.
+ *
+ * **Key Features:**
+ * - Fetches content from both Notion pages and databases
+ * - Converts Notion's block-based structure to GitHub-flavored Markdown
+ * - Supports recursive fetching of child pages with depth control
+ * - Handles various Notion block types including tables, lists, and toggles
+ * - Preserves page hierarchy and formatting in the output
+ *
+ * **Supported Content Types:**
+ * - Pages with all standard block types
+ * - Databases with property-based table rendering
+ * - Child pages with configurable recursion depth
+ * - Column layouts and nested structures
+ * - Rich text formatting and links
+ *
+ * **Error Handling:**
+ * - Specific error messages for common API failures
+ * - Graceful fallbacks for missing content
+ * - Rate limiting awareness
+ *
+ * @module notion-client
+ * @requires @notionhq/client
+ */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.NotionClient = void 0;
 const client_1 = __nccwpck_require__(8342);
 const markdown_converter_1 = __nccwpck_require__(6567);
-// Add default depth constants
+/**
+ * Default maximum recursion depth for fetching child pages.
+ * Prevents infinite loops and controls API usage.
+ * @constant {number}
+ */
 const DEFAULT_MAX_RECURSION_DEPTH = 1;
+/**
+ * Initial recursion depth when starting to fetch page content.
+ * @constant {number}
+ */
 const DEFAULT_INITIAL_DEPTH = 0;
 /**
- * Notion API client for fetching and converting content to Markdown
- * Handles both pages and databases with recursive content fetching
+ * Client for interacting with the Notion API and converting content to Markdown.
+ *
+ * This class encapsulates all Notion API interactions and provides methods
+ * for fetching and converting both pages and databases to Markdown format.
+ *
+ * **Authentication:**
+ * Requires a Notion integration token with appropriate permissions:
+ * - Read access to pages and databases
+ * - Access to workspace content
+ *
+ * **Usage Pattern:**
+ * 1. Initialize with integration token
+ * 2. Call getTitleAndMarkdown() with a Notion URL
+ * 3. Receive formatted Markdown content
+ *
+ * @class
+ * @example
+ * ```typescript
+ * const client = new NotionClient(process.env.NOTION_TOKEN);
+ * const result = await client.getTitleAndMarkdown('https://notion.so/page-id');
+ * console.log(result.markdown);
+ * ```
  */
 class NotionClient {
     /**
-     * Initializes the Notion client with authentication token
-     * @param token Notion integration token
+     * Initializes the Notion API client with authentication.
+     *
+     * Creates an authenticated client instance using the official Notion SDK.
+     * The token must be from a Notion integration with appropriate permissions.
+     *
+     * **Required Permissions:**
+     * - Read content
+     * - Access to target pages/databases
+     *
+     * @param {string} token - Notion integration token (starts with 'secret_')
+     * @throws {Error} The Notion SDK will throw if the token is invalid
+     * @constructor
      */
     constructor(token) {
         this.client = new client_1.Client({ auth: token });
     }
     /**
-     * Fetches Notion content and converts it to Markdown format
-     * @param url Notion page or database URL
-     * @param maxDepth Maximum recursion depth for child pages (default: 1)
-     * @returns Object containing title, markdown content, URL, and icon
+     * Fetches Notion content from a URL and converts it to Markdown.
+     *
+     * This is the main entry point for content retrieval. It handles both
+     * pages and databases, automatically detecting the content type from the URL.
+     *
+     * **Process Flow:**
+     * 1. Extracts the ID from the Notion URL
+     * 2. Determines if URL points to a page or database
+     * 3. Fetches content using appropriate API endpoint
+     * 4. Converts blocks to Markdown format
+     * 5. Recursively fetches child pages up to maxDepth
+     *
+     * **URL Formats Supported:**
+     * - Pages: `https://notion.so/Page-Title-{32-char-id}`
+     * - Databases: `https://notion.so/workspace/{32-char-id}?v=...`
+     * - Workspace URLs: `https://workspace.notion.site/...`
+     *
+     * **Error Handling:**
+     * - `object_not_found`: Page/database doesn't exist or no access
+     * - `unauthorized`: Invalid token
+     * - `forbidden`: Integration lacks permissions
+     * - `rate_limited`: API rate limit exceeded
+     *
+     * @param {string} url - Full Notion URL to fetch content from
+     * @param {number} [maxDepth=1] - Maximum depth for recursive child page fetching
+     * @returns {Promise<Object>} Parsed content object
+     * @returns {string} returns.title - Page or database title
+     * @returns {string} returns.markdown - Content converted to Markdown
+     * @returns {string} returns.url - Original Notion URL
+     * @returns {string|null} returns.icon - Emoji or image URL for the page icon
+     * @throws {Error} Detailed error message for various failure scenarios
+     * @async
      */
     async getTitleAndMarkdown(url, maxDepth = DEFAULT_MAX_RECURSION_DEPTH) {
         const id = this.extractId(url);
@@ -32390,9 +32804,23 @@ class NotionClient {
         }
     }
     /**
-     * Extracts Notion page/database ID from URL
-     * @param url Notion URL containing ID
-     * @returns Clean page/database ID
+     * Extracts the Notion ID from various URL formats.
+     *
+     * Notion IDs can appear in URLs in multiple formats:
+     * - With hyphens: `12345678-1234-5678-1234-567890abcdef`
+     * - Without hyphens: `1234567812345678123456789abcdef`
+     *
+     * This method normalizes the ID by removing hyphens for API usage.
+     *
+     * **Supported Patterns:**
+     * - UUID with hyphens (8-4-4-4-12 format)
+     * - 32-character hexadecimal string
+     * - IDs embedded in various URL structures
+     *
+     * @param {string} url - Notion URL containing an ID
+     * @returns {string} Normalized 32-character ID without hyphens
+     * @throws {Error} If no valid Notion ID pattern is found in the URL
+     * @private
      */
     extractId(url) {
         let match = url.match(/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/);
@@ -32406,9 +32834,19 @@ class NotionClient {
         throw new Error(`Invalid Notion URL format: ${url}`);
     }
     /**
-     * Extracts title from Notion page object
-     * @param page Notion page response object
-     * @returns Page title or "Untitled Page" if not found
+     * Extracts the title from a Notion page object.
+     *
+     * Searches through all page properties to find the title property,
+     * which is identified by its type. Falls back to a default if not found.
+     *
+     * **Title Resolution Order:**
+     * 1. First property with type="title"
+     * 2. First plain_text value from title array
+     * 3. "Untitled Page" as fallback
+     *
+     * @param {GetPageResponse} page - Notion API page response object
+     * @returns {string} Extracted title or "Untitled Page" if not found
+     * @private
      */
     getPageTitle(page) {
         if (!("properties" in page)) {
@@ -32425,9 +32863,14 @@ class NotionClient {
         return "Untitled Page";
     }
     /**
-     * Extracts title from Notion database object
-     * @param db Notion database response object
-     * @returns Database title or "Untitled Database" if not found
+     * Extracts the title from a Notion database object.
+     *
+     * Database titles are stored as rich text arrays at the root level.
+     * Converts the rich text to plain Markdown for display.
+     *
+     * @param {GetDatabaseResponse} db - Notion API database response object
+     * @returns {string} Database title or "Untitled Database" if not found
+     * @private
      */
     getDatabaseTitle(db) {
         if (!("title" in db) || !db.title || db.title.length === 0) {
@@ -32436,12 +32879,34 @@ class NotionClient {
         return (0, markdown_converter_1.richTextArrayToMarkdown)(db.title, { type: "standard" });
     }
     /**
-     * Recursively fetches all child blocks with indentation and depth tracking
-     * @param blockId ID of the parent block
-     * @param currentLevel Current indentation level
-     * @param currentDepth Current recursion depth
-     * @param maxDepth Maximum allowed recursion depth
-     * @returns Array of augmented blocks with indentation and child page details
+     * Recursively fetches all child blocks from a parent block.
+     *
+     * This method is the core of content retrieval, handling Notion's
+     * hierarchical block structure with proper indentation and depth control.
+     *
+     * **Special Handling:**
+     * - **Column Lists**: Fetches columns and their content separately
+     * - **Tables**: Fetches table rows as children of table blocks
+     * - **Child Pages**: Recursively fetches content if within depth limit
+     * - **Lists & Toggles**: Increases indentation for nested items
+     *
+     * **Pagination:**
+     * - Fetches up to 100 blocks per API call
+     * - Automatically handles pagination for large pages
+     *
+     * **Augmentation:**
+     * Each block is augmented with:
+     * - `_indentationLevel`: Visual nesting level for Markdown conversion
+     * - `_isExpanded`: Whether child pages were fetched
+     * - `child_page_details`: Nested content for child pages
+     *
+     * @param {string} blockId - ID of the parent block to fetch children from
+     * @param {number} [currentLevel=0] - Current indentation level for visual nesting
+     * @param {number} [currentDepth=0] - Current recursion depth for child pages
+     * @param {number} [maxDepth=1] - Maximum recursion depth to prevent infinite loops
+     * @returns {Promise<AugmentedBlockObjectResponse[]>} Array of blocks with metadata
+     * @public
+     * @async
      */
     async getAllBlockChildren(blockId, currentLevel = 0, currentDepth = DEFAULT_INITIAL_DEPTH, maxDepth = DEFAULT_MAX_RECURSION_DEPTH) {
         const allBlocks = [];
@@ -32547,21 +33012,52 @@ class NotionClient {
         return allBlocks;
     }
     /**
-     * Converts a Notion page to Markdown format
-     * @param pageId Notion page ID
-     * @param pageObject Page object for properties
-     * @param currentDepth Current recursion depth
-     * @param maxDepth Maximum recursion depth
-     * @returns Markdown representation of the page
+     * Converts a Notion page to Markdown format.
+     *
+     * Fetches all blocks from the page and delegates to the Markdown
+     * converter for formatting. Passes page properties for context.
+     *
+     * @param {string} pageId - ID of the page to convert
+     * @param {PageObjectResponse} pageObject - Page object containing properties
+     * @param {number} [currentDepth=0] - Current depth in page hierarchy
+     * @param {number} [maxDepth=1] - Maximum depth for child page expansion
+     * @returns {Promise<string>} Complete Markdown representation of the page
+     * @private
+     * @async
      */
     async pageToMarkdown(pageId, pageObject, currentDepth = DEFAULT_INITIAL_DEPTH, maxDepth = DEFAULT_MAX_RECURSION_DEPTH) {
         const pageBlocks = await this.getAllBlockChildren(pageId, 0, currentDepth, maxDepth);
         return (0, markdown_converter_1.blocksToMarkdown)(pageBlocks, pageObject, this);
     }
     /**
-     * Converts a Notion database to Markdown table format
-     * @param databaseId Notion database ID
-     * @returns Markdown table representation of the database
+     * Converts a Notion database to a Markdown table.
+     *
+     * Fetches all database entries and renders them as a GitHub-flavored
+     * Markdown table with proper formatting and escaping.
+     *
+     * **Process:**
+     * 1. Queries all pages in the database (handles pagination)
+     * 2. Extracts property names as table headers
+     * 3. Converts each property value to appropriate Markdown
+     * 4. Formats as aligned table with escaped special characters
+     *
+     * **Property Type Handling:**
+     * - Title/Rich Text: Converted to Markdown with formatting
+     * - Numbers: Displayed as-is
+     * - Select/Multi-select: Comma-separated values
+     * - Dates: Start date only
+     * - Checkboxes: ✅ or ⬜ emoji
+     * - URLs: Markdown link format
+     * - Others: Type indicator in brackets
+     *
+     * **Special Characters:**
+     * - Pipe characters (|) are escaped
+     * - Newlines are converted to `<br>` tags
+     *
+     * @param {string} databaseId - ID of the database to convert
+     * @returns {Promise<string>} Markdown table or empty message
+     * @private
+     * @async
      */
     async databaseToMarkdown(databaseId) {
         const fetchedPages = [];

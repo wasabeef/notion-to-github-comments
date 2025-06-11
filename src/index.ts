@@ -1,3 +1,35 @@
+/**
+ * @fileoverview GitHub Action Entry Point
+ * 
+ * This module serves as the main entry point for the notion-to-github-comments GitHub Action.
+ * It orchestrates the entire workflow of extracting Notion URLs from PR descriptions,
+ * fetching their content via the Notion API, converting to Markdown, and posting the
+ * formatted content as PR comments.
+ * 
+ * **Workflow Steps:**
+ * 1. Retrieve PR/Issue body from GitHub context
+ * 2. Extract all Notion URLs using pattern matching
+ * 3. Fetch content from each Notion page/database
+ * 4. Convert Notion blocks to GitHub-flavored Markdown
+ * 5. Post or update PR comment with formatted content
+ * 
+ * **Required Inputs:**
+ * - `notion-token`: Notion integration token with read access
+ * - `github-token`: GitHub token with `pull-requests: write` permission
+ * 
+ * **Outputs:**
+ * - `comment-url`: URL of the created/updated PR comment
+ * 
+ * **Error Handling:**
+ * - Individual URL failures don't stop the entire process
+ * - Failed URLs are displayed with error messages in the comment
+ * - Action fails only on critical errors (missing tokens, API failures)
+ * 
+ * @module index
+ * @requires @actions/core
+ * @requires @actions/github
+ */
+
 import * as core from "@actions/core";
 import * as github from "@actions/github";
 import { extractNotionURLs } from "./url-extractor";
@@ -5,9 +37,33 @@ import { NotionClient } from "./notion-client";
 import { GithubClient } from "./github-client";
 
 /**
- * Main entry point for the GitHub Action
- * Extracts Notion URLs from PR descriptions, fetches their content, and posts/updates comments
- * with the converted Markdown content
+ * Main execution function for the GitHub Action.
+ * 
+ * Processes the workflow of extracting Notion URLs from PR/Issue descriptions
+ * and posting their content as formatted comments.
+ * 
+ * **Process Flow:**
+ * 1. **Authentication**: Validates and retrieves required tokens
+ * 2. **URL Extraction**: Finds all Notion URLs in PR/Issue body
+ * 3. **Content Fetching**: Retrieves each Notion page/database content
+ * 4. **Comment Management**: Creates new or updates existing PR comment
+ * 5. **Cleanup**: Deletes existing comment if no URLs found
+ * 
+ * **Comment Format:**
+ * - Header with processing status (X success, Y errors)
+ * - Collapsible sections for each Notion URL
+ * - Icons indicating page type (📄 page, 🗃️ database, ⚠️ error)
+ * - Direct links to original Notion pages
+ * - Markdown-formatted content with preserved structure
+ * 
+ * **Error Recovery:**
+ * - Continues processing remaining URLs if one fails
+ * - Displays error message for failed URLs
+ * - Tracks success/error count for status reporting
+ * 
+ * @async
+ * @returns {Promise<void>} Completes when comment is posted or action fails
+ * @throws {Error} Critical errors are caught and reported via core.setFailed()
  */
 async function run() {
   try {
