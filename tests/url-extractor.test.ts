@@ -170,4 +170,97 @@ describe('extractNotionURLs', () => {
     expect(urls.length).toBe(1);
     expect(urls[0]).toBe('https://www.notion.so/valid-abcdef1234567890abcdef1234567890');
   });
+
+  // Additional edge case tests
+  it('should handle empty string', () => {
+    const urls = extractNotionURLs('');
+    expect(urls).toEqual([]);
+  });
+
+  it('should handle null input', () => {
+    const urls = extractNotionURLs(null as any);
+    expect(urls).toEqual([]);
+  });
+
+  it('should handle undefined input', () => {
+    const urls = extractNotionURLs(undefined as any);
+    expect(urls).toEqual([]);
+  });
+
+  it('should handle URLs with special characters in path', () => {
+    const text = 'https://notion.so/workspace/Page-with-%20spaces-abc123def456gh789ijkl012mnop3456';
+    const urls = extractNotionURLs(text);
+    expect(urls.length).toBe(1);
+    expect(urls[0]).toBe('https://notion.so/workspace/Page-with-%20spaces-abc123def456gh789ijkl012mnop3456');
+  });
+
+  it('should handle URLs with unicode characters', () => {
+    const text = 'https://notion.so/workspace/ページ-タイトル-abc123def456gh789ijkl012mnop3456';
+    const urls = extractNotionURLs(text);
+    expect(urls.length).toBe(1);
+    expect(urls[0]).toBe('https://notion.so/workspace/ページ-タイトル-abc123def456gh789ijkl012mnop3456');
+  });
+
+  it('should handle URLs with fragment identifiers', () => {
+    const text = 'https://notion.so/page-abc123def456gh789ijkl012mnop3456#heading-123';
+    const urls = extractNotionURLs(text);
+    expect(urls.length).toBe(1);
+    expect(urls[0]).toBe('https://notion.so/page-abc123def456gh789ijkl012mnop3456#heading-123');
+  });
+
+  it('should handle URLs with multiple query parameters', () => {
+    const text = 'https://notion.so/page?p=abc123def456gh789ijkl012mnop3456&v=gallery&sort=name';
+    const urls = extractNotionURLs(text);
+    expect(urls.length).toBe(1);
+    // The URL extraction keeps all parameters when the ID format doesn't match the regex
+    expect(urls[0]).toBe('https://notion.so/page?p=abc123def456gh789ijkl012mnop3456&v=gallery&sort=name');
+  });
+
+  it('should handle malformed URLs gracefully', () => {
+    const text = 'https://notion.so/[invalid-characters]-abc123def456gh789ijkl012mnop3456';
+    const urls = extractNotionURLs(text);
+    expect(urls.length).toBe(1);
+    // Should still extract the URL even if it contains invalid characters
+  });
+
+  it('should handle URLs in nested HTML structures', () => {
+    const text = '<div><a href="https://notion.so/page-abc123def456gh789ijkl012mnop3456">Link</a></div>';
+    const urls = extractNotionURLs(text);
+    expect(urls.length).toBe(1);
+    expect(urls[0]).toBe('https://notion.so/page-abc123def456gh789ijkl012mnop3456');
+  });
+
+  it('should handle very long input text', () => {
+    const longText = 'Some text '.repeat(10000) + 'https://notion.so/page-abc123def456gh789ijkl012mnop3456' + ' more text'.repeat(10000);
+    const urls = extractNotionURLs(longText);
+    expect(urls.length).toBe(1);
+    expect(urls[0]).toBe('https://notion.so/page-abc123def456gh789ijkl012mnop3456');
+  });
+
+  it('should handle URLs with different protocols', () => {
+    const text = `
+      http://notion.so/page-abc123def456gh789ijkl012mnop3456
+      https://notion.so/page-def456gh789ijkl012mnop3456abc123
+      ftp://notion.so/not-a-valid-notion-url
+      notion://not-a-web-url
+    `;
+    const urls = extractNotionURLs(text);
+    expect(urls.length).toBe(2);
+    expect(urls).toContain('http://notion.so/page-abc123def456gh789ijkl012mnop3456');
+    expect(urls).toContain('https://notion.so/page-def456gh789ijkl012mnop3456abc123');
+  });
+
+  it('should handle edge case with URL at the very end', () => {
+    const text = 'Check this out: https://notion.so/abc123def456gh789ijkl012mnop3456';
+    const urls = extractNotionURLs(text);
+    expect(urls.length).toBe(1);
+    expect(urls[0]).toBe('https://notion.so/abc123def456gh789ijkl012mnop3456');
+  });
+
+  it('should handle edge case with URL at the very beginning', () => {
+    const text = 'https://notion.so/abc123def456gh789ijkl012mnop3456 is the URL';
+    const urls = extractNotionURLs(text);
+    expect(urls.length).toBe(1);
+    expect(urls[0]).toBe('https://notion.so/abc123def456gh789ijkl012mnop3456');
+  });
 });

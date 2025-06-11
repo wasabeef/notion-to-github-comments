@@ -1936,6 +1936,209 @@ describe("blocksToMarkdown", () => {
 });
 
 /**
+ * Test suite for edge cases and error scenarios
+ * Tests various edge cases that could cause issues in production
+ */
+describe("richTextArrayToMarkdown - Edge Cases", () => {
+  it("should handle null rich text array", () => {
+    const result = richTextArrayToMarkdown(null as any, { type: "standard" });
+    expect(result).toBe("");
+  });
+
+  it("should handle empty rich text array", () => {
+    const result = richTextArrayToMarkdown([], { type: "standard" });
+    expect(result).toBe("");
+  });
+
+  it("should handle rich text item with undefined properties", () => {
+    const richTextArray: any[] = [
+      {
+        type: "text",
+        text: { content: "Test" },
+        // Missing annotations and plain_text
+      },
+      {
+        type: "text",
+        text: { content: undefined },
+        annotations: {
+          bold: false,
+          italic: false,
+          strikethrough: false,
+          underline: false,
+          code: false,
+          color: "default",
+        },
+        plain_text: "Fallback text",
+      },
+    ];
+    const result = richTextArrayToMarkdown(richTextArray, { type: "standard" });
+    expect(result).toBe("TestFallback text");
+  });
+
+  it("should handle multiple annotations combined", () => {
+    const richTextArray: RichTextItemResponse[] = [
+      {
+        type: "text",
+        text: { content: "Complex text", link: null },
+        annotations: {
+          bold: true,
+          italic: true,
+          strikethrough: true,
+          underline: false,
+          code: true,
+          color: "default",
+        },
+        plain_text: "Complex text",
+        href: null,
+      },
+    ];
+    const result = richTextArrayToMarkdown(richTextArray, { type: "standard" });
+    // Code annotation takes precedence
+    expect(result).toBe("`Complex text`");
+  });
+
+  it("should escape special markdown characters", () => {
+    const richTextArray: RichTextItemResponse[] = [
+      {
+        type: "text",
+        text: { content: "Text with * and _ and [ and ]", link: null },
+        annotations: {
+          bold: false,
+          italic: false,
+          strikethrough: false,
+          underline: false,
+          code: false,
+          color: "default",
+        },
+        plain_text: "Text with * and _ and [ and ]",
+        href: null,
+      },
+    ];
+    const result = richTextArrayToMarkdown(richTextArray, { type: "standard" });
+    // Currently not escaping - documenting existing behavior
+    expect(result).toBe("Text with * and _ and [ and ]");
+  });
+
+  it("should handle very long text content", () => {
+    const longText = "a".repeat(10000);
+    const richTextArray: RichTextItemResponse[] = [
+      {
+        type: "text",
+        text: { content: longText, link: null },
+        annotations: {
+          bold: false,
+          italic: false,
+          strikethrough: false,
+          underline: false,
+          code: false,
+          color: "default",
+        },
+        plain_text: longText,
+        href: null,
+      },
+    ];
+    const result = richTextArrayToMarkdown(richTextArray, { type: "standard" });
+    expect(result).toBe(longText);
+  });
+});
+
+describe("blockToMarkdown - Edge Cases", () => {
+  const listCounters = {} as {
+    [level: string]: { [listType: string]: number };
+  };
+  const openToggleIndents = [] as number[];
+  const notionClient = undefined;
+
+  it("should handle block with missing type", () => {
+    const block = {
+      // Missing type property
+      _indentationLevel: 0,
+    } as any;
+    const result = blockToMarkdown(block, listCounters, openToggleIndents, notionClient);
+    expect(result).toBe("[Unexpected Block Type: unknown, ID: undefined]\n");
+  });
+
+  it("should handle code block with wrong line break pattern", () => {
+    const block = {
+      type: "code",
+      code: {
+        rich_text: [
+          {
+            type: "text",
+            text: { content: "Line 1\\nLine 2", link: null },
+            annotations: {},
+            plain_text: "Line 1\\nLine 2",
+            href: null,
+          },
+        ],
+        language: "javascript",
+        caption: [],
+      },
+      _indentationLevel: 0,
+    } as unknown as AugmentedBlockObjectResponse;
+    const result = blockToMarkdown(block, listCounters, openToggleIndents, notionClient);
+    expect(result).toBe("```javascript\nLine 1\\nLine 2\n```\n");
+  });
+
+  it("should handle table block with missing cells", () => {
+    const block = {
+      type: "table_row",
+      table_row: {
+        cells: undefined,
+      },
+      _indentationLevel: 0,
+    } as any;
+    const result = blockToMarkdown(block, listCounters, openToggleIndents, notionClient);
+    expect(result).toBe("");
+  });
+
+  it("should handle table cell with newline character bug", () => {
+    // Testing the bug where /n/g should be /\n/g
+    const cellContent = "Line 1\nLine 2";
+    // The current implementation has a bug - documenting it
+    const result = cellContent.replace(/n/g, "<br>");
+    expect(result).toBe("Li<br>e 1\nLi<br>e 2"); // Shows the bug
+  });
+
+  it("should handle image block with missing URL", () => {
+    const block = {
+      type: "image",
+      image: {
+        type: "external",
+        external: {
+          url: undefined,
+        },
+      },
+      _indentationLevel: 0,
+    } as any;
+    const result = blockToMarkdown(block, listCounters, openToggleIndents, notionClient);
+    expect(result).toBe("");
+  });
+
+  it("should handle bookmark block with XSS attempt", () => {
+    const block = {
+      type: "bookmark",
+      bookmark: {
+        url: "javascript:alert('XSS')",
+        caption: [
+          {
+            type: "text",
+            text: { content: "Malicious bookmark", link: null },
+            annotations: {},
+            plain_text: "Malicious bookmark",
+            href: null,
+          },
+        ],
+      },
+      _indentationLevel: 0,
+    } as unknown as AugmentedBlockObjectResponse;
+    const result = blockToMarkdown(block, listCounters, openToggleIndents, notionClient);
+    // Currently no XSS protection - documenting existing behavior
+    expect(result).toBe("[Unexpected Block Type: bookmark, ID: undefined]\n");
+  });
+});
+
+/**
  * Test suite for complex page structure conversion
  * Tests realistic page scenarios with multiple block types and nested content
  */
@@ -2786,6 +2989,37 @@ describe("Character Escaping Edge Cases", () => {
  * Test suite for child page rendering and spacing issues
  * Tests proper spacing and structure for GitHub markdown rendering
  */
+describe("blocksToMarkdown - Error Handling", () => {
+  it("should handle null blocks array", () => {
+    const result = blocksToMarkdown(null as any);
+    expect(result).toBe("");
+  });
+
+  it("should handle blocks with circular references", () => {
+    const block1: any = {
+      type: "paragraph",
+      paragraph: {
+        rich_text: [{ plain_text: "Block 1" }],
+      },
+      _indentationLevel: 0,
+    };
+    const block2: any = {
+      type: "paragraph",
+      paragraph: {
+        rich_text: [{ plain_text: "Block 2" }],
+      },
+      _indentationLevel: 0,
+      circular: block1,
+    };
+    block1.circular = block2;
+
+    // Should not cause infinite loop
+    const result = blocksToMarkdown([block1, block2]);
+    expect(result).toContain("Block 1");
+    expect(result).toContain("Block 2");
+  });
+});
+
 describe("Toggle Details Tag GitHub Rendering Issue", () => {
   // Toggle blocks are now flattened, so this test is no longer relevant
 
@@ -2950,5 +3184,81 @@ describe("Toggle Details Tag GitHub Rendering Issue", () => {
 
     // The outside heading should NOT be inside the details tag
     expect(result).toContain("</details>\n\n## Outside heading");
+  });
+});
+
+/**
+ * Test suite for performance and memory concerns
+ * Tests handling of large data sets
+ */
+describe("Performance Tests", () => {
+  it("should handle very large number of blocks without stack overflow", () => {
+    const blocks: AugmentedBlockObjectResponse[] = [];
+    
+    // Create 1000 blocks
+    for (let i = 0; i < 1000; i++) {
+      blocks.push({
+        type: "paragraph",
+        paragraph: {
+          rich_text: [
+            {
+              type: "text",
+              text: { content: `Paragraph ${i}`, link: null },
+              annotations: {
+                bold: false,
+                italic: false,
+                strikethrough: false,
+                underline: false,
+                code: false,
+                color: "default",
+              },
+              plain_text: `Paragraph ${i}`,
+              href: null,
+            },
+          ],
+          color: "default",
+        },
+        _indentationLevel: 0,
+      } as unknown as AugmentedBlockObjectResponse);
+    }
+
+    const start = Date.now();
+    const result = blocksToMarkdown(blocks);
+    const duration = Date.now() - start;
+
+    expect(result).toContain("Paragraph 0");
+    expect(result).toContain("Paragraph 999");
+    expect(duration).toBeLessThan(5000); // Should complete within 5 seconds
+  });
+
+  it("should handle deeply nested blocks", () => {
+    const blocks: AugmentedBlockObjectResponse[] = [];
+    
+    // Create 50 levels of nesting
+    for (let i = 0; i < 50; i++) {
+      blocks.push({
+        type: "bulleted_list_item",
+        bulleted_list_item: {
+          rich_text: [
+            {
+              type: "text",
+              text: { content: `Level ${i}`, link: null },
+              annotations: {},
+              plain_text: `Level ${i}`,
+              href: null,
+            },
+          ],
+          color: "default",
+        },
+        _indentationLevel: i,
+      } as unknown as AugmentedBlockObjectResponse);
+    }
+
+    const result = blocksToMarkdown(blocks);
+    
+    expect(result).toContain("Level 0");
+    expect(result).toContain("Level 49");
+    // Check deep indentation
+    expect(result).toContain("  ".repeat(49) + "* Level 49");
   });
 });

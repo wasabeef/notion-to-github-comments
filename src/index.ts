@@ -2,14 +2,31 @@ import * as core from "@actions/core";
 import * as github from "@actions/github";
 import { extractNotionURLs } from "./url-extractor";
 import { NotionClient } from "./notion-client";
-import { GithubClient } from "./github-client";
+import { GitHubClient } from "./github-client";
 
 /**
- * Main entry point for the GitHub Action
- * Extracts Notion URLs from PR descriptions, fetches their content, and posts/updates comments
- * with the converted Markdown content
+ * Main entry point for the GitHub Action that syncs Notion content to GitHub comments.
+ * 
+ * This function performs the following steps:
+ * 1. Validates required input tokens (github-token and notion-token)
+ * 2. Extracts Notion URLs from PR/issue body text
+ * 3. Fetches content from each Notion page/database
+ * 4. Converts Notion blocks to GitHub-flavored Markdown
+ * 5. Creates or updates a comment with the formatted content
+ * 6. Handles errors gracefully with appropriate logging
+ * 
+ * @async
+ * @function run
+ * @returns {Promise<void>} Resolves when the action completes
+ * @throws {Error} May throw errors that are caught and logged via core.setFailed
+ * 
+ * @example
+ * // This function is typically called automatically by GitHub Actions
+ * // But can also be invoked programmatically:
+ * import { run } from './index';
+ * await run();
  */
-async function run() {
+export async function run() {
   try {
     const notionToken = core.getInput("notion-token", { required: true });
     const githubToken = core.getInput("github-token", { required: true });
@@ -18,7 +35,7 @@ async function run() {
       github.context.payload.issue?.body ||
       "";
 
-    const githubClient = new GithubClient(githubToken);
+    const githubClient = new GitHubClient(githubToken);
 
     const urls = extractNotionURLs(prBody);
     if (urls.length === 0) {
@@ -37,7 +54,8 @@ async function run() {
 
     const notion = new NotionClient(notionToken);
 
-    // Get title and markdown for each URL
+    // Process each Notion URL to fetch and convert content
+    // Each URL is processed independently to handle partial failures gracefully
     const sections = [];
     let errorCount = 0;
 
@@ -85,8 +103,10 @@ async function run() {
         ? `${successCount} success, ${errorCount} error(s)`
         : `${urls.length} processed`;
 
+    // Format the final comment with proper structure and metadata
     const commentBody = `### 🤖 Notion Context (${statusText})\n\n${sections.join("\n\n")}`;
 
+    // Check for existing comment to determine whether to update or create new one
     const existingCommentId = await githubClient.findExistingComment();
     let commentUrl: string | undefined;
 
@@ -110,8 +130,16 @@ async function run() {
       core.warning("⚠️ Comment URL not available");
     }
   } catch (error) {
+    // Log the error and fail the action to notify users of issues
     core.setFailed((error as Error).message);
   }
 }
 
-run();
+/**
+ * Auto-execution guard for GitHub Actions.
+ * This ensures the action runs automatically when invoked by GitHub Actions,
+ * but not when imported as a module (e.g., during testing).
+ */
+if (require.main === module) {
+  run();
+}

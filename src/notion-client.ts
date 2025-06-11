@@ -18,25 +18,72 @@ const DEFAULT_MAX_RECURSION_DEPTH = 1;
 const DEFAULT_INITIAL_DEPTH = 0;
 
 /**
- * Notion API client for fetching and converting content to Markdown
- * Handles both pages and databases with recursive content fetching
+ * Client for interacting with Notion API to fetch and convert content.
+ * 
+ * This class provides comprehensive functionality for:
+ * - Fetching Notion pages and databases
+ * - Converting Notion blocks to GitHub-flavored Markdown
+ * - Handling nested content and child pages
+ * - Processing various block types including text, lists, code, tables, etc.
+ * - Managing API rate limits and error handling
+ * 
+ * @class NotionClient
+ * @example
+ * const client = new NotionClient(notionToken);
+ * const { title, markdown } = await client.getTitleAndMarkdown('https://notion.so/page-id');
+ * console.log(`# ${title}\n\n${markdown}`);
  */
 export class NotionClient {
   private client: Client;
 
   /**
-   * Initializes the Notion client with authentication token
-   * @param token Notion integration token
+   * Initializes the Notion client with authentication.
+   * 
+   * @constructor
+   * @param {string} token - Notion integration token (internal integration token)
+   * @throws {Error} May throw if token is invalid or Notion API is unreachable
+   * 
+   * @example
+   * // Initialize with integration token
+   * const client = new NotionClient(process.env.NOTION_TOKEN);
    */
   constructor(token: string) {
     this.client = new Client({ auth: token });
   }
 
   /**
-   * Fetches Notion content and converts it to Markdown format
-   * @param url Notion page or database URL
-   * @param maxDepth Maximum recursion depth for child pages (default: 1)
-   * @returns Object containing title, markdown content, URL, and icon
+   * Fetches and converts a Notion page or database to title and Markdown.
+   * 
+   * This is the main entry point for content conversion. It handles:
+   * - Page vs database detection
+   * - Content fetching with proper error handling
+   * - Recursive processing of child pages up to maxDepth
+   * - Icon extraction (emoji or external URL)
+   * 
+   * @async
+   * @param {string} url - Notion page or database URL
+   * @param {number} [maxDepth=1] - Maximum recursion depth for child pages
+   * @returns {Promise<{title: string, markdown: string, url: string, icon: string|null}>}
+   *          Object containing processed title, markdown content, cleaned URL, and icon
+   * @throws {Error} Throws specific errors for:
+   *         - Invalid URL format
+   *         - Page/database not found (404)
+   *         - Unauthorized access (401)
+   *         - Rate limit exceeded (429)
+   *         - Other API errors
+   * 
+   * @example
+   * try {
+   *   const result = await client.getTitleAndMarkdown(
+   *     'https://notion.so/My-Page-abc123',
+   *     2 // Max depth
+   *   );
+   *   console.log(result.title);    // "My Page"
+   *   console.log(result.markdown); // Converted content
+   *   console.log(result.icon);     // "📄" or URL
+   * } catch (error) {
+   *   console.error('Failed to fetch:', error.message);
+   * }
    */
   async getTitleAndMarkdown(
     url: string,
@@ -137,9 +184,14 @@ export class NotionClient {
   }
 
   /**
-   * Extracts title from Notion page object
-   * @param page Notion page response object
-   * @returns Page title or "Untitled Page" if not found
+   * Extracts the title from a Notion page object.
+   * 
+   * Searches through page properties to find title-type properties,
+   * checking common property names in multiple languages.
+   * 
+   * @private
+   * @param {GetPageResponse} page - Page object from Notion API
+   * @returns {string} Page title or "Untitled Page" if not found
    */
   private getPageTitle(page: GetPageResponse): string {
     if (!("properties" in page)) {
@@ -161,9 +213,14 @@ export class NotionClient {
   }
 
   /**
-   * Extracts title from Notion database object
-   * @param db Notion database response object
-   * @returns Database title or "Untitled Database" if not found
+   * Extracts the title from a Notion database object.
+   * 
+   * Handles both full database responses and query results
+   * which may have different structures.
+   * 
+   * @private
+   * @param {GetDatabaseResponse} database - Database object from Notion API
+   * @returns {string} Database title or "Untitled Database" if not found
    */
   private getDatabaseTitle(db: GetDatabaseResponse): string {
     if (!("title" in db) || !db.title || db.title.length === 0) {
@@ -173,12 +230,30 @@ export class NotionClient {
   }
 
   /**
-   * Recursively fetches all child blocks with indentation and depth tracking
-   * @param blockId ID of the parent block
-   * @param currentLevel Current indentation level
-   * @param currentDepth Current recursion depth
-   * @param maxDepth Maximum allowed recursion depth
-   * @returns Array of augmented blocks with indentation and child page details
+   * Recursively fetches all child blocks with pagination support.
+   * 
+   * This method handles:
+   * - Pagination for blocks with many children
+   * - Special handling for column_list and column blocks
+   * - Child page expansion based on depth limits
+   * - Toggle block expansion
+   * - Table and table_row relationship management
+   * 
+   * @async
+   * @param {string} blockId - Parent block ID to fetch children for
+   * @param {number} [currentLevel=0] - Current indentation level for formatting
+   * @param {number} [currentDepth=0] - Current recursion depth
+   * @param {number} [maxDepth=1] - Maximum recursion depth to prevent infinite loops
+   * @returns {Promise<AugmentedBlockObjectResponse[]>} Array of blocks with metadata
+   * @throws {Error} May throw if API request fails
+   * 
+   * @example
+   * const blocks = await this.getAllBlockChildren(
+   *   'page-id',
+   *   0,    // Start at level 0
+   *   1,    // Current depth 1
+   *   3     // Max depth 3
+   * );
    */
   public async getAllBlockChildren(
     blockId: string,
@@ -434,7 +509,7 @@ export class NotionClient {
               cellContent = `[${prop.type}]`;
           }
         }
-        cellContent = cellContent.replace(/\|/g, "\\|").replace(/n/g, "<br>");
+        cellContent = cellContent.replace(/\|/g, "\\|").replace(/\n/g, "<br>");
         row.push(cellContent);
       }
       markdownTable += `| ${row.join(" | ")} |\\n`;

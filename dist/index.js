@@ -31315,26 +31315,67 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.GithubClient = void 0;
+exports.GitHubClient = void 0;
 const github = __importStar(__nccwpck_require__(3228));
 const core = __importStar(__nccwpck_require__(7484));
+/**
+ * Hidden HTML comment marker used to identify comments created by this action.
+ * This allows the action to find and update its own comments without affecting
+ * other comments in the PR/issue thread.
+ */
 const HIDDEN_MARKER = "<!-- NOTION_TO_GITHUB_COMMENTS -->";
 /**
- * GitHub client for managing pull request comments
- * Handles creating, updating, and deleting comments with Notion context
+ * GitHub client for managing pull request and issue comments.
+ *
+ * This class provides a clean interface for interacting with GitHub's API
+ * to create, update, find, and delete comments. It automatically handles
+ * authentication and adds hidden markers to track comments created by this action.
+ *
+ * @class GitHubClient
+ * @example
+ * const client = new GitHubClient(githubToken);
+ * const existingId = await client.findExistingComment();
+ * if (existingId) {
+ *   await client.updateExistingComment(existingId, 'Updated content');
+ * } else {
+ *   await client.postNewComment('New content');
+ * }
  */
-class GithubClient {
+class GitHubClient {
     /**
-     * Initializes the GitHub client with authentication token
-     * @param token GitHub token for API authentication
+     * Initializes the GitHub client with authentication token.
+     *
+     * @constructor
+     * @param {string} token - GitHub personal access token or GITHUB_TOKEN from Actions
+     * @throws {Error} May throw if token is invalid or GitHub API is unreachable
+     *
+     * @example
+     * // Using GitHub Actions token
+     * const client = new GitHubClient(process.env.GITHUB_TOKEN);
+     *
+     * // Using personal access token
+     * const client = new GitHubClient('ghp_xxxxxxxxxxxx');
      */
     constructor(token) {
         this.octokit = github.getOctokit(token);
         this.context = github.context;
     }
     /**
-     * Searches for existing comment created by this action
-     * @returns Comment ID if found, null otherwise
+     * Searches for an existing comment created by this action.
+     *
+     * This method scans through all comments on the current PR/issue to find
+     * one that contains our hidden marker and was created by the github-actions bot.
+     * This ensures we only update comments created by this specific action.
+     *
+     * @async
+     * @returns {Promise<number|null>} The comment ID if found, null otherwise
+     * @throws {Error} May throw if GitHub API request fails
+     *
+     * @example
+     * const commentId = await client.findExistingComment();
+     * if (commentId) {
+     *   console.log(`Found existing comment: ${commentId}`);
+     * }
      */
     async findExistingComment() {
         const { owner, repo } = this.context.repo;
@@ -31348,9 +31389,19 @@ class GithubClient {
             c.body?.includes(HIDDEN_MARKER))?.id || null);
     }
     /**
-     * Creates a new comment on the pull request
-     * @param body Comment content in Markdown format
-     * @returns URL of the created comment
+     * Creates a new comment on the pull request or issue.
+     *
+     * The comment will automatically include a hidden marker that allows
+     * this action to identify and update it in future runs.
+     *
+     * @async
+     * @param {string} body - Comment content in Markdown format
+     * @returns {Promise<string>} URL of the created comment
+     * @throws {Error} May throw if GitHub API request fails or permissions are insufficient
+     *
+     * @example
+     * const url = await client.postNewComment('## Hello\nThis is my comment');
+     * console.log(`Comment created at: ${url}`);
      */
     async postNewComment(body) {
         const { owner, repo } = this.context.repo;
@@ -31364,10 +31415,20 @@ class GithubClient {
         return response.data.html_url;
     }
     /**
-     * Updates an existing comment with new content
-     * @param commentId ID of the comment to update
-     * @param body New comment content in Markdown format
-     * @returns URL of the updated comment
+     * Updates an existing comment with new content.
+     *
+     * The hidden marker is preserved to ensure the comment can still be
+     * found in future runs of the action.
+     *
+     * @async
+     * @param {number} commentId - ID of the comment to update
+     * @param {string} body - New comment content in Markdown format
+     * @returns {Promise<string|undefined>} URL of the updated comment
+     * @throws {Error} May throw if comment doesn't exist or permissions are insufficient
+     *
+     * @example
+     * const url = await client.updateExistingComment(12345, '## Updated\nNew content');
+     * console.log(`Comment updated at: ${url}`);
      */
     async updateExistingComment(commentId, body) {
         const { owner, repo } = this.context.repo;
@@ -31380,8 +31441,19 @@ class GithubClient {
         return response.data.html_url;
     }
     /**
-     * Deletes a comment from the pull request
-     * @param commentId ID of the comment to delete
+     * Deletes a comment from the pull request or issue.
+     *
+     * This is typically used when no Notion URLs are found in the PR/issue body,
+     * ensuring outdated Notion context comments are removed.
+     *
+     * @async
+     * @param {number} commentId - ID of the comment to delete
+     * @returns {Promise<void>}
+     * @throws {Error} May throw if comment doesn't exist or permissions are insufficient
+     *
+     * @example
+     * await client.deleteComment(12345);
+     * console.log('Comment deleted successfully');
      */
     async deleteComment(commentId) {
         const { owner, repo } = this.context.repo;
@@ -31393,7 +31465,7 @@ class GithubClient {
         core.info(`Deleted comment with ID: ${commentId}`);
     }
 }
-exports.GithubClient = GithubClient;
+exports.GitHubClient = GitHubClient;
 
 
 /***/ }),
@@ -31437,15 +31509,33 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.run = run;
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
 const url_extractor_1 = __nccwpck_require__(9143);
 const notion_client_1 = __nccwpck_require__(1128);
 const github_client_1 = __nccwpck_require__(7890);
 /**
- * Main entry point for the GitHub Action
- * Extracts Notion URLs from PR descriptions, fetches their content, and posts/updates comments
- * with the converted Markdown content
+ * Main entry point for the GitHub Action that syncs Notion content to GitHub comments.
+ *
+ * This function performs the following steps:
+ * 1. Validates required input tokens (github-token and notion-token)
+ * 2. Extracts Notion URLs from PR/issue body text
+ * 3. Fetches content from each Notion page/database
+ * 4. Converts Notion blocks to GitHub-flavored Markdown
+ * 5. Creates or updates a comment with the formatted content
+ * 6. Handles errors gracefully with appropriate logging
+ *
+ * @async
+ * @function run
+ * @returns {Promise<void>} Resolves when the action completes
+ * @throws {Error} May throw errors that are caught and logged via core.setFailed
+ *
+ * @example
+ * // This function is typically called automatically by GitHub Actions
+ * // But can also be invoked programmatically:
+ * import { run } from './index';
+ * await run();
  */
 async function run() {
     try {
@@ -31454,7 +31544,7 @@ async function run() {
         const prBody = github.context.payload.pull_request?.body ||
             github.context.payload.issue?.body ||
             "";
-        const githubClient = new github_client_1.GithubClient(githubToken);
+        const githubClient = new github_client_1.GitHubClient(githubToken);
         const urls = (0, url_extractor_1.extractNotionURLs)(prBody);
         if (urls.length === 0) {
             core.info("No Notion URLs found.");
@@ -31467,7 +31557,8 @@ async function run() {
         }
         core.info(`Processing ${urls.length} Notion URL(s)...`);
         const notion = new notion_client_1.NotionClient(notionToken);
-        // Get title and markdown for each URL
+        // Process each Notion URL to fetch and convert content
+        // Each URL is processed independently to handle partial failures gracefully
         const sections = [];
         let errorCount = 0;
         for (const url of urls) {
@@ -31501,7 +31592,9 @@ async function run() {
         const statusText = errorCount > 0
             ? `${successCount} success, ${errorCount} error(s)`
             : `${urls.length} processed`;
+        // Format the final comment with proper structure and metadata
         const commentBody = `### 🤖 Notion Context (${statusText})\n\n${sections.join("\n\n")}`;
+        // Check for existing comment to determine whether to update or create new one
         const existingCommentId = await githubClient.findExistingComment();
         let commentUrl;
         if (existingCommentId) {
@@ -31521,10 +31614,18 @@ async function run() {
         }
     }
     catch (error) {
+        // Log the error and fail the action to notify users of issues
         core.setFailed(error.message);
     }
 }
-run();
+/**
+ * Auto-execution guard for GitHub Actions.
+ * This ensures the action runs automatically when invoked by GitHub Actions,
+ * but not when imported as a module (e.g., during testing).
+ */
+if (require.main === require.cache[eval('__filename')]) {
+    run();
+}
 
 
 /***/ }),
@@ -31537,6 +31638,10 @@ run();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.blockToMarkdown = exports.pagePropertiesToMarkdown = exports.richTextArrayToMarkdown = void 0;
 exports.blocksToMarkdown = blocksToMarkdown;
+/**
+ * Constants for Markdown formatting.
+ * Centralized to ensure consistency across all conversion functions.
+ */
 const MARKDOWN_CONSTANTS = {
     NEWLINE: "\n",
     INDENT: "  ",
@@ -31553,17 +31658,35 @@ const MARKDOWN_CONSTANTS = {
     TRIPLE_NEWLINE: "\n\n\n",
 };
 /**
- * Converts Notion rich text array to Markdown string with context-aware formatting
- * @param richTextArr Array of Notion rich text items
- * @param context Conversion context that determines formatting behavior
- * @returns Formatted Markdown string
+ * Converts Notion rich text array to Markdown string with context-aware formatting.
+ *
+ * This is the core text conversion function that handles:
+ * - Text formatting (bold, italic, strikethrough, underline, code)
+ * - Links and URLs
+ * - Context-specific formatting rules
+ * - Newline handling based on context
+ * - HTML entity escaping for table cells
+ *
+ * @param {RichTextItemResponse[]} richTextArr - Array of Notion rich text items
+ * @param {ConversionContext} context - Conversion context that determines formatting behavior
+ * @returns {string} Formatted Markdown string
+ *
+ * @example
+ * // Standard formatting with all features
+ * const markdown = richTextArrayToMarkdown(richText, { type: "standard" });
+ *
+ * // Table cell formatting with pipe escaping
+ * const cellContent = richTextArrayToMarkdown(richText, { type: "tableCell" });
+ *
+ * // Raw code content without formatting
+ * const code = richTextArrayToMarkdown(richText, { type: "codeBlockContent" });
  */
 const richTextArrayToMarkdown = (richTextArr, context) => {
     if (!richTextArr)
         return "";
     return richTextArr
         .map((item) => {
-        let text = item.plain_text;
+        let text = item.plain_text || item.text?.content || "";
         let applyAnnotationsAndLinks = false;
         switch (context.type) {
             case "mermaidContent":
@@ -31583,21 +31706,25 @@ const richTextArrayToMarkdown = (richTextArr, context) => {
                 applyAnnotationsAndLinks = true;
                 break;
         }
-        if (applyAnnotationsAndLinks) {
-            if (item.annotations.bold) {
-                text = `**${text}**`;
-            }
-            if (item.annotations.italic) {
-                text = `_${text}_`;
-            }
-            if (item.annotations.strikethrough) {
-                text = `~~${text}~~`;
-            }
+        if (applyAnnotationsAndLinks && item.annotations) {
+            // Code annotation takes precedence over other formatting
             if (item.annotations.code) {
                 text = "`" + text + "`";
             }
-            if (item.annotations.underline) {
-                text = `<u>${text}</u>`;
+            else {
+                // Apply other annotations only if not code
+                if (item.annotations.bold) {
+                    text = `**${text}**`;
+                }
+                if (item.annotations.italic) {
+                    text = `_${text}_`;
+                }
+                if (item.annotations.strikethrough) {
+                    text = `~~${text}~~`;
+                }
+                if (item.annotations.underline) {
+                    text = `<u>${text}</u>`;
+                }
             }
             if (item.href) {
                 const escapedHref = item.href.replace(/_/g, "\\\\_");
@@ -31610,9 +31737,23 @@ const richTextArrayToMarkdown = (richTextArr, context) => {
 };
 exports.richTextArrayToMarkdown = richTextArrayToMarkdown;
 /**
- * Converts Notion page properties to Markdown table format
- * @param properties Page properties object from Notion API
- * @returns Markdown table representation of properties
+ * Converts Notion page properties to Markdown table format.
+ *
+ * Creates a standardized table showing all page properties and their values.
+ * Handles various property types including:
+ * - Title, rich text, number, select, multi-select
+ * - Dates, people, files, checkboxes, URLs, email, phone
+ * - Formulas, relations, rollups, timestamps
+ *
+ * @param {PageObjectResponse["properties"]} properties - Page properties object from Notion API
+ * @returns {string} Markdown table representation of properties
+ *
+ * @example
+ * // Input: { "Status": { type: "select", select: { name: "Done" } } }
+ * // Output:
+ * // | Property | Value |
+ * // |----------|-------|
+ * // | Status   | Done  |
  */
 const pagePropertiesToMarkdown = (properties) => {
     const markdownRows = [];
@@ -31791,10 +31932,26 @@ const pagePropertiesToMarkdown = (properties) => {
 };
 exports.pagePropertiesToMarkdown = pagePropertiesToMarkdown;
 /**
- * Converts paragraph block to Markdown format
- * @param block Notion paragraph block
- * @param context Block conversion context with indentation and formatting options
- * @returns Markdown representation of the paragraph
+ * Converts a Notion paragraph block to Markdown format.
+ *
+ * This function handles:
+ * - Rich text formatting within the paragraph
+ * - Empty paragraphs (preserves spacing)
+ * - Proper indentation for nested content
+ * - Special handling for paragraphs with only empty rich text items
+ *
+ * @param {ParagraphBlockObjectResponse} block - Notion paragraph block object
+ * @param {BlockConversionContext} context - Conversion context with indentation and formatting
+ * @returns {string} Markdown representation of the paragraph with proper newlines
+ *
+ * @example
+ * // Regular paragraph
+ * handleParagraphBlock(paragraphBlock, context)
+ * // Output: "  This is a paragraph with **bold** text\n"
+ *
+ * // Empty paragraph
+ * handleParagraphBlock(emptyBlock, context)
+ * // Output: "  \n"
  */
 const handleParagraphBlock = (block, context) => {
     let markdown = context.indentText +
@@ -31812,11 +31969,26 @@ const handleParagraphBlock = (block, context) => {
     return markdown;
 };
 /**
- * Converts heading block to Markdown format
- * @param block Notion heading block (level 1, 2, or 3)
- * @param context Block conversion context
- * @param level Heading level (1-3)
- * @returns Markdown heading with appropriate level prefix
+ * Converts a Notion heading block to Markdown format with appropriate level prefix.
+ *
+ * Supports all three heading levels supported by Notion:
+ * - Level 1: # Heading (largest)
+ * - Level 2: ## Heading (medium)
+ * - Level 3: ### Heading (smallest)
+ *
+ * @param {Heading1BlockObjectResponse | Heading2BlockObjectResponse | Heading3BlockObjectResponse} block - Notion heading block
+ * @param {BlockConversionContext} context - Conversion context with indentation settings
+ * @param {1 | 2 | 3} level - Heading level determining the number of # prefixes
+ * @returns {string} Markdown heading with proper level prefix and formatting
+ *
+ * @example
+ * // Level 1 heading
+ * handleHeadingBlock(heading1Block, context, 1)
+ * // Output: "  # Main Title\n"
+ *
+ * // Level 3 heading with formatting
+ * handleHeadingBlock(heading3Block, context, 3)
+ * // Output: "  ### **Bold** Subtitle\n"
  */
 const handleHeadingBlock = (block, context, level) => {
     const headingPrefix = level === 1
@@ -31835,10 +32007,31 @@ const handleHeadingBlock = (block, context, level) => {
         MARKDOWN_CONSTANTS.NEWLINE);
 };
 /**
- * Converts list item block to Markdown format
- * @param block Notion list item block (bulleted or numbered)
- * @param context Block conversion context with list counters
- * @returns Markdown list item with appropriate prefix
+ * Converts a Notion list item block to Markdown format with appropriate prefix.
+ *
+ * Handles two types of list items:
+ * - Bulleted list items: Use '* ' prefix
+ * - Numbered list items: Use '1. ', '2. ', etc. with automatic counter management
+ *
+ * The function automatically manages numbering for nested numbered lists
+ * using the list counters from the conversion context.
+ *
+ * @param {BulletedListItemBlockObjectResponse | NumberedListItemBlockObjectResponse} block - Notion list item block
+ * @param {BlockConversionContext} context - Context with list counters and indentation
+ * @returns {string} Markdown list item with proper prefix and formatting
+ *
+ * @example
+ * // Bulleted list item
+ * handleListItemBlock(bulletedBlock, context)
+ * // Output: "  * This is a bullet point\n"
+ *
+ * // Numbered list item (first item)
+ * handleListItemBlock(numberedBlock, context)
+ * // Output: "  1. This is item number one\n"
+ *
+ * // Numbered list item (third item)
+ * handleListItemBlock(numberedBlock, context)
+ * // Output: "  3. This is the third item\n"
  */
 const handleListItemBlock = (block, context) => {
     if (block.type === "bulleted_list_item") {
@@ -31859,10 +32052,28 @@ const handleListItemBlock = (block, context) => {
     }
 };
 /**
- * Converts to-do block to Markdown checkbox format
- * @param block Notion to-do block
- * @param context Block conversion context
- * @returns Markdown checkbox with checked/unchecked state
+ * Converts a Notion to-do block to Markdown checkbox format.
+ *
+ * Creates GitHub-flavored Markdown checkboxes that can be toggled
+ * in supported Markdown renderers. The checkbox state is preserved
+ * from the original Notion to-do block.
+ *
+ * @param {ToDoBlockObjectResponse} block - Notion to-do block object
+ * @param {BlockConversionContext} context - Conversion context with indentation
+ * @returns {string} Markdown checkbox with proper state and formatting
+ *
+ * @example
+ * // Unchecked to-do
+ * handleToDoBlock(uncheckedBlock, context)
+ * // Output: "  - [ ] This task is not done\n"
+ *
+ * // Checked to-do
+ * handleToDoBlock(checkedBlock, context)
+ * // Output: "  - [x] This task is completed\n"
+ *
+ * // To-do with rich text formatting
+ * handleToDoBlock(formattedBlock, context)
+ * // Output: "  - [ ] This task has **bold** text\n"
  */
 const handleToDoBlock = (block, context) => {
     const checked = block.to_do.checked ? "[x]" : "[ ]";
@@ -31874,10 +32085,29 @@ const handleToDoBlock = (block, context) => {
         MARKDOWN_CONSTANTS.NEWLINE);
 };
 /**
- * Converts toggle block to Markdown format with HTML entity escaping
- * @param block Notion toggle block
- * @param context Block conversion context
- * @returns Markdown text with escaped HTML characters
+ * Converts a Notion toggle block to Markdown format with HTML entity escaping.
+ *
+ * Toggle blocks in Notion allow collapsible content. Since Markdown doesn't
+ * have native toggle support, this function converts the toggle text to
+ * regular text while safely escaping any HTML characters that might
+ * interfere with Markdown rendering.
+ *
+ * @param {ToggleBlockObjectResponse} block - Notion toggle block object
+ * @param {BlockConversionContext} context - Conversion context with indentation
+ * @returns {string} Markdown text with HTML entities escaped for safety
+ *
+ * @example
+ * // Toggle with plain text
+ * handleToggleBlock(toggleBlock, context)
+ * // Output: "  Click to expand\n"
+ *
+ * // Toggle with HTML characters
+ * handleToggleBlock(htmlToggleBlock, context)
+ * // Output: "  Code: &lt;div&gt;content&lt;/div&gt;\n"
+ *
+ * // Toggle with rich text formatting
+ * handleToggleBlock(richToggleBlock, context)
+ * // Output: "  **Important** information &lt;here&gt;\n"
  */
 const handleToggleBlock = (block, context) => {
     const toggleText = (0, exports.richTextArrayToMarkdown)(block.toggle.rich_text, context.standardContext);
@@ -31886,10 +32116,43 @@ const handleToggleBlock = (block, context) => {
         MARKDOWN_CONSTANTS.NEWLINE);
 };
 /**
- * Converts code block to Markdown format with language detection and Mermaid support
- * @param block Notion code block
- * @param context Block conversion context
- * @returns Markdown code block with proper fencing and language specification
+ * Converts a Notion code block to Markdown format with language detection and Mermaid support.
+ *
+ * This function provides comprehensive code block handling:
+ * - Language detection and specification in code fence
+ * - Special handling for Mermaid diagrams (preserves newlines)
+ * - Caption support (displayed below the code block)
+ * - Proper code fencing with triple backticks
+ * - Content-specific formatting based on language type
+ *
+ * @param {CodeBlockObjectResponse} block - Notion code block object
+ * @param {BlockConversionContext} context - Conversion context with indentation
+ * @returns {string} Markdown code block with proper fencing and language
+ *
+ * @example
+ * // JavaScript code block
+ * handleCodeBlock(jsBlock, context)
+ * // Output:
+ * // ```javascript
+ * // console.log('Hello World');
+ * // ```
+ *
+ * // Mermaid diagram (special newline handling)
+ * handleCodeBlock(mermaidBlock, context)
+ * // Output:
+ * // ```mermaid
+ * // graph TD
+ * //   A --> B
+ * // ```
+ *
+ * // Code block with caption
+ * handleCodeBlock(captionedBlock, context)
+ * // Output:
+ * // ```python
+ * // print("Hello")
+ * // ```
+ * //
+ * // This is the caption text
  */
 const handleCodeBlock = (block, context) => {
     const notionLanguage = block.code.language?.toLowerCase();
@@ -31932,10 +32195,30 @@ const handleCodeBlock = (block, context) => {
     }
 };
 /**
- * Converts quote block to Markdown blockquote format
- * @param block Notion quote block
- * @param context Block conversion context
- * @returns Markdown blockquote with proper line prefixes
+ * Converts a Notion quote block to Markdown blockquote format.
+ *
+ * Creates properly formatted blockquotes using the '> ' prefix.
+ * Handles multi-line quotes by prefixing each line individually,
+ * ensuring proper rendering in all Markdown parsers.
+ *
+ * @param {QuoteBlockObjectResponse} block - Notion quote block object
+ * @param {BlockConversionContext} context - Conversion context with indentation
+ * @returns {string} Markdown blockquote with proper line prefixes
+ *
+ * @example
+ * // Single line quote
+ * handleQuoteBlock(singleLineBlock, context)
+ * // Output: "  > This is a quote\n"
+ *
+ * // Multi-line quote
+ * handleQuoteBlock(multiLineBlock, context)
+ * // Output:
+ * // "  > First line of quote\n"
+ * // "  > Second line of quote\n"
+ *
+ * // Empty quote
+ * handleQuoteBlock(emptyBlock, context)
+ * // Output: "  > \n"
  */
 const handleQuoteBlock = (block, context) => {
     const content = (0, exports.richTextArrayToMarkdown)(block.quote.rich_text, context.standardContext);
@@ -31957,10 +32240,36 @@ const handleQuoteBlock = (block, context) => {
     }
 };
 /**
- * Converts child page block to Markdown format with collapsible details
- * @param block Notion child page block
- * @param context Block conversion context
- * @returns Markdown details/summary structure or simple link
+ * Converts a Notion child page block to Markdown format with collapsible details.
+ *
+ * This function handles child page embedding in two ways:
+ * 1. Expanded: Full content in HTML <details> collapsible section
+ * 2. Collapsed: Simple link to the child page
+ *
+ * When expanded, includes:
+ * - Page title with icon in summary
+ * - Direct link to the Notion page
+ * - Full recursive content from the child page
+ * - Proper indentation for nested content
+ *
+ * @param {ChildPageBlockObjectResponse} block - Notion child page block
+ * @param {BlockConversionContext} context - Conversion context with indentation and client
+ * @returns {string} HTML details structure or simple Markdown link
+ *
+ * @example
+ * // Expanded child page
+ * handleChildPageBlock(expandedBlock, context)
+ * // Output:
+ * // <details>
+ * //   <summary>📄 Child Page Title</summary>
+ * //   <a href="https://notion.so/pageid">https://notion.so/pageid</a>
+ * //
+ * //   [Child page content here]
+ * // </details>
+ *
+ * // Collapsed child page
+ * handleChildPageBlock(collapsedBlock, context)
+ * // Output: "  [Child Page Title](https://notion.so/pageid)\n"
  */
 const handleChildPageBlock = (block, context) => {
     if (block._isExpanded && block.child_page_details) {
@@ -31982,10 +32291,19 @@ const handleChildPageBlock = (block, context) => {
     }
 };
 /**
- * Converts child database block to Markdown link format
- * @param block Notion child database block
- * @param context Block conversion context
- * @returns Markdown link to the database
+ * Converts a Notion child database block to Markdown link format.
+ *
+ * Child databases are embedded database views within pages.
+ * Since full database rendering can be complex, this function
+ * creates a simple link to the database for easy access.
+ *
+ * @param {ChildDatabaseBlockObjectResponse} block - Notion child database block
+ * @param {BlockConversionContext} context - Conversion context with indentation
+ * @returns {string} Markdown link to the database with descriptive text
+ *
+ * @example
+ * handleChildDatabaseBlock(databaseBlock, context)
+ * // Output: "  [Database: Project Tasks](https://www.notion.so/abc123)\n"
  */
 const handleChildDatabaseBlock = (block, context) => {
     const title = block.child_database.title;
@@ -31993,10 +32311,28 @@ const handleChildDatabaseBlock = (block, context) => {
     return `${context.indentText}[Database: ${title}](https://www.notion.so/${dbId})`;
 };
 /**
- * Converts callout block to Markdown blockquote with icon
- * @param block Notion callout block
- * @param context Block conversion context
- * @returns Markdown blockquote with emoji or image icon
+ * Converts a Notion callout block to Markdown blockquote with icon.
+ *
+ * Callout blocks are highlighted text sections with icons in Notion.
+ * This function converts them to blockquotes while preserving the icon
+ * and formatting. Supports both emoji icons and external image icons.
+ *
+ * @param {CalloutBlockObjectResponse} block - Notion callout block object
+ * @param {BlockConversionContext} context - Conversion context with indentation
+ * @returns {string} Markdown blockquote with icon and formatted content
+ *
+ * @example
+ * // Callout with emoji icon
+ * handleCalloutBlock(emojiCalloutBlock, context)
+ * // Output: "  > 💡 This is an important note\n"
+ *
+ * // Callout with image icon
+ * handleCalloutBlock(imageCalloutBlock, context)
+ * // Output: "  > ![icon](https://example.com/icon.png) Warning message\n"
+ *
+ * // Callout without icon
+ * handleCalloutBlock(plainCalloutBlock, context)
+ * // Output: "  > Important information here\n"
  */
 const handleCalloutBlock = (block, context) => {
     let markdown = context.indentText + MARKDOWN_CONSTANTS.BLOCKQUOTE;
@@ -32015,10 +32351,23 @@ const handleCalloutBlock = (block, context) => {
     return markdown;
 };
 /**
- * Converts embed block to HTML iframe format
- * @param block Notion embed block
- * @param context Block conversion context
- * @returns HTML iframe element or empty string
+ * Converts a Notion embed block to HTML iframe format.
+ *
+ * Embed blocks allow embedding external content (videos, web pages, etc.)
+ * in Notion pages. This function creates an HTML iframe to display
+ * the embedded content in Markdown environments that support HTML.
+ *
+ * @param {EmbedBlockObjectResponse} block - Notion embed block object
+ * @param {BlockConversionContext} context - Conversion context with indentation
+ * @returns {string} HTML iframe element or empty string if no URL
+ *
+ * @example
+ * handleEmbedBlock(embedBlock, context)
+ * // Output: "  <iframe src=\"https://example.com/video\"></iframe>\n"
+ *
+ * // Block without URL
+ * handleEmbedBlock(emptyEmbedBlock, context)
+ * // Output: ""
  */
 const handleEmbedBlock = (block, context) => {
     if (block.embed.url) {
@@ -32029,10 +32378,19 @@ const handleEmbedBlock = (block, context) => {
     return "";
 };
 /**
- * Converts link preview block to Markdown link format
- * @param block Notion link preview block
- * @param context Block conversion context
- * @returns Markdown link
+ * Converts a Notion link preview block to Markdown link format.
+ *
+ * Link preview blocks show a preview card for URLs in Notion.
+ * Since Markdown doesn't support rich previews, this function
+ * converts them to simple clickable links.
+ *
+ * @param {LinkPreviewBlockObjectResponse} block - Notion link preview block
+ * @param {BlockConversionContext} context - Conversion context with indentation
+ * @returns {string} Markdown link using the URL as both text and destination
+ *
+ * @example
+ * handleLinkPreviewBlock(linkBlock, context)
+ * // Output: "  [https://example.com](https://example.com)\n"
  */
 const handleLinkPreviewBlock = (block, context) => {
     return (context.indentText +
@@ -32040,20 +32398,51 @@ const handleLinkPreviewBlock = (block, context) => {
         MARKDOWN_CONSTANTS.NEWLINE);
 };
 /**
- * Converts divider block to Markdown horizontal rule
- * @param context Block conversion context
- * @returns Markdown horizontal rule
+ * Converts a Notion divider block to Markdown horizontal rule.
+ *
+ * Divider blocks create visual separation between content sections.
+ * This function converts them to Markdown horizontal rules using
+ * three hyphens (---) which is widely supported.
+ *
+ * @param {BlockConversionContext} context - Conversion context with indentation
+ * @returns {string} Markdown horizontal rule with proper indentation
+ *
+ * @example
+ * handleDividerBlock(context)
+ * // Output: "  ---\n"
  */
 const handleDividerBlock = (context) => {
     return (context.indentText + MARKDOWN_CONSTANTS.DIVIDER + MARKDOWN_CONSTANTS.NEWLINE);
 };
 /**
- * Processes table blocks and converts them to Markdown table format
- * @param tableBlock Notion table block with configuration
- * @param currentBlocks Array of all blocks being processed
- * @param startIndex Starting index in the blocks array
- * @param effectiveIndentLevel Current indentation level
- * @returns Object containing table markdown and next processing index
+ * Processes a Notion table block and its rows to create Markdown table format.
+ *
+ * This function handles the complex process of converting Notion tables:
+ * - Collects all table_row blocks that belong to the table
+ * - Handles header rows (when has_column_header is true)
+ * - Creates properly formatted Markdown table with alignment
+ * - Manages cell content conversion and escaping
+ * - Returns the next index to continue processing from
+ *
+ * @param {AugmentedBlockObjectResponse & {type: "table"}} tableBlock - Notion table block with config
+ * @param {AugmentedBlockObjectResponse[]} currentBlocks - All blocks being processed
+ * @param {number} startIndex - Current position in the blocks array
+ * @param {number} effectiveIndentLevel - Current indentation level
+ * @returns {{tableMarkdown: string, nextIndex: number}} Table content and next processing position
+ *
+ * @example
+ * const {tableMarkdown, nextIndex} = processTableBlocks(
+ *   tableBlock,
+ *   allBlocks,
+ *   5,
+ *   0
+ * );
+ * // tableMarkdown:
+ * // | Name | Status |
+ * // |------|--------|
+ * // | Task 1 | Done |
+ * // | Task 2 | In Progress |
+ * // nextIndex: 8
  */
 const processTableBlocks = (tableBlock, currentBlocks, startIndex, effectiveIndentLevel) => {
     const tableRows = [];
@@ -32113,10 +32502,27 @@ const processTableBlocks = (tableBlock, currentBlocks, startIndex, effectiveInde
     return { tableMarkdown, nextIndex: j - 1 };
 };
 /**
- * Adds appropriate spacing between blocks based on their types
- * @param parts Array of markdown parts being built
- * @param prevBlock Previous block in the sequence
- * @param currentBlock Current block being processed
+ * Adds appropriate spacing between blocks based on their types.
+ *
+ * This function manages the visual spacing in the final Markdown output
+ * by determining when extra newlines are needed between different block types.
+ * List items are kept together without extra spacing, while other blocks
+ * get additional spacing for better readability.
+ *
+ * @param {string[]} parts - Array of markdown parts being built
+ * @param {AugmentedBlockObjectResponse | null} prevBlock - Previous block in sequence
+ * @param {AugmentedBlockObjectResponse} currentBlock - Current block being processed
+ * @returns {void} Modifies the parts array in place
+ *
+ * @example
+ * // Between heading and paragraph - adds extra space
+ * addBlockSpacing(parts, headingBlock, paragraphBlock);
+ *
+ * // Between list items - no extra space
+ * addBlockSpacing(parts, listItemBlock, anotherListItemBlock);
+ *
+ * // After code block - adds extra space
+ * addBlockSpacing(parts, codeBlock, paragraphBlock);
  */
 const addBlockSpacing = (parts, prevBlock, currentBlock) => {
     if (parts.length === 0 || !prevBlock)
@@ -32146,12 +32552,36 @@ const addBlockSpacing = (parts, prevBlock, currentBlock) => {
     }
 };
 /**
- * Converts a single Notion block to Markdown format
- * @param block Augmented Notion block with indentation level
- * @param listCounters Counter object for numbered lists by level
- * @param openToggleIndents Array of open toggle indentation levels
- * @param notionClient Optional Notion client for child page fetching
- * @returns Markdown representation of the block
+ * Converts a single Notion block to Markdown format.
+ *
+ * This is the main block conversion function that handles all supported
+ * Notion block types. It manages:
+ * - Block type detection and routing to specific handlers
+ * - List counter management for numbered lists
+ * - Indentation and context propagation
+ * - Error handling for unsupported block types
+ *
+ * Supported block types include:
+ * - Text blocks: paragraph, headings (1-3), quote
+ * - List blocks: bulleted_list_item, numbered_list_item, to_do
+ * - Media blocks: code, image, embed, link_preview
+ * - Structure blocks: toggle, divider, callout
+ * - Nested blocks: child_page, child_database, table, table_row
+ *
+ * @param {AugmentedBlockObjectResponse} block - Block with indentation metadata
+ * @param {Object} listCounters - Counters for numbered lists by nesting level
+ * @param {number[]} openToggleIndents - Array of open toggle indentation levels
+ * @param {NotionClient} [notionClient] - Optional client for fetching child content
+ * @returns {string} Markdown representation of the block
+ *
+ * @example
+ * const markdown = blockToMarkdown(
+ *   augmentedBlock,
+ *   { "0": { "numbered": 1 } },
+ *   [],
+ *   notionClient
+ * );
+ * // Returns: "  1. This is a numbered list item\n"
  */
 const blockToMarkdown = (block, listCounters, openToggleIndents, notionClient) => {
     const indentText = MARKDOWN_CONSTANTS.INDENT.repeat(block._indentationLevel);
@@ -32208,10 +32638,21 @@ const blockToMarkdown = (block, listCounters, openToggleIndents, notionClient) =
         case "link_preview":
             return handleLinkPreviewBlock(block, context);
         case "image":
+            const imageBlock = block;
+            if (imageBlock.image.type === "external" && imageBlock.image.external?.url) {
+                const caption = imageBlock.image.caption.length > 0
+                    ? (0, exports.richTextArrayToMarkdown)(imageBlock.image.caption, context.standardContext)
+                    : "";
+                return `${context.indentText}![${caption}](${imageBlock.image.external.url})${MARKDOWN_CONSTANTS.NEWLINE}`;
+            }
             return "";
         case "table":
             return "";
         case "table_row":
+            const tableRowBlock = block;
+            if (!tableRowBlock.table_row?.cells) {
+                return "";
+            }
             return "";
         case "synced_block":
             return `${context.indentText}[Unsupported Block Type: ${block.type}, ID: ${block.id}]${MARKDOWN_CONSTANTS.NEWLINE}`;
@@ -32225,15 +32666,49 @@ const blockToMarkdown = (block, listCounters, openToggleIndents, notionClient) =
 };
 exports.blockToMarkdown = blockToMarkdown;
 /**
- * Converts an array of Notion blocks to complete Markdown document
- * @param blocks Array of augmented Notion blocks
- * @param page Optional page object for properties table
- * @param notionClient Optional Notion client for child page processing
- * @param initialIndentLevel Starting indentation level
- * @returns Complete Markdown document
+ * Converts an array of Notion blocks to a complete Markdown document.
+ *
+ * This is the main entry point for converting Notion content to Markdown.
+ * It orchestrates the entire conversion process:
+ *
+ * 1. **Page Properties**: Converts page properties to a table (if page provided)
+ * 2. **Block Processing**: Recursively processes all blocks with proper nesting
+ * 3. **Table Handling**: Special processing for table blocks and their rows
+ * 4. **Spacing Management**: Adds appropriate spacing between block types
+ * 5. **Error Handling**: Gracefully handles conversion errors
+ * 6. **Output Cleanup**: Ensures proper formatting and trailing newlines
+ *
+ * Features:
+ * - Recursive processing with depth control
+ * - List counter management across nesting levels
+ * - Toggle block state tracking
+ * - Child page expansion support
+ * - Table row collection and formatting
+ * - Context-aware indentation
+ *
+ * @param {AugmentedBlockObjectResponse[]} blocks - Array of blocks with indentation metadata
+ * @param {PageObjectResponse} [page] - Optional page object for properties table
+ * @param {NotionClient} [notionClient] - Optional client for child page fetching
+ * @param {number} [initialIndentLevel=0] - Starting indentation level for nested calls
+ * @returns {string} Complete Markdown document with proper formatting
+ *
+ * @throws {Error} Logs conversion errors but returns error message instead of throwing
+ *
+ * @example
+ * // Convert page with properties table
+ * const markdown = blocksToMarkdown(blocks, pageObject, notionClient);
+ *
+ * // Convert child page content (nested call)
+ * const childMarkdown = blocksToMarkdown(childBlocks, null, notionClient, 1);
+ *
+ * // Simple block conversion without extras
+ * const simpleMarkdown = blocksToMarkdown(blocks);
  */
 function blocksToMarkdown(blocks, page, notionClient, initialIndentLevel = 0) {
     try {
+        if (!blocks || !Array.isArray(blocks)) {
+            return "";
+        }
         const markdownParts = [];
         const listCounters = {};
         const openToggleIndents = [];
@@ -32296,8 +32771,9 @@ function blocksToMarkdown(blocks, page, notionClient, initialIndentLevel = 0) {
         }
         return finalMarkdown;
     }
-    catch {
+    catch (error) {
         // Error occurred during markdown conversion
+        console.error("Error converting blocks to Markdown:", error);
         return "Error converting blocks to Markdown.";
     }
 }
@@ -32318,22 +32794,69 @@ const markdown_converter_1 = __nccwpck_require__(6567);
 const DEFAULT_MAX_RECURSION_DEPTH = 1;
 const DEFAULT_INITIAL_DEPTH = 0;
 /**
- * Notion API client for fetching and converting content to Markdown
- * Handles both pages and databases with recursive content fetching
+ * Client for interacting with Notion API to fetch and convert content.
+ *
+ * This class provides comprehensive functionality for:
+ * - Fetching Notion pages and databases
+ * - Converting Notion blocks to GitHub-flavored Markdown
+ * - Handling nested content and child pages
+ * - Processing various block types including text, lists, code, tables, etc.
+ * - Managing API rate limits and error handling
+ *
+ * @class NotionClient
+ * @example
+ * const client = new NotionClient(notionToken);
+ * const { title, markdown } = await client.getTitleAndMarkdown('https://notion.so/page-id');
+ * console.log(`# ${title}\n\n${markdown}`);
  */
 class NotionClient {
     /**
-     * Initializes the Notion client with authentication token
-     * @param token Notion integration token
+     * Initializes the Notion client with authentication.
+     *
+     * @constructor
+     * @param {string} token - Notion integration token (internal integration token)
+     * @throws {Error} May throw if token is invalid or Notion API is unreachable
+     *
+     * @example
+     * // Initialize with integration token
+     * const client = new NotionClient(process.env.NOTION_TOKEN);
      */
     constructor(token) {
         this.client = new client_1.Client({ auth: token });
     }
     /**
-     * Fetches Notion content and converts it to Markdown format
-     * @param url Notion page or database URL
-     * @param maxDepth Maximum recursion depth for child pages (default: 1)
-     * @returns Object containing title, markdown content, URL, and icon
+     * Fetches and converts a Notion page or database to title and Markdown.
+     *
+     * This is the main entry point for content conversion. It handles:
+     * - Page vs database detection
+     * - Content fetching with proper error handling
+     * - Recursive processing of child pages up to maxDepth
+     * - Icon extraction (emoji or external URL)
+     *
+     * @async
+     * @param {string} url - Notion page or database URL
+     * @param {number} [maxDepth=1] - Maximum recursion depth for child pages
+     * @returns {Promise<{title: string, markdown: string, url: string, icon: string|null}>}
+     *          Object containing processed title, markdown content, cleaned URL, and icon
+     * @throws {Error} Throws specific errors for:
+     *         - Invalid URL format
+     *         - Page/database not found (404)
+     *         - Unauthorized access (401)
+     *         - Rate limit exceeded (429)
+     *         - Other API errors
+     *
+     * @example
+     * try {
+     *   const result = await client.getTitleAndMarkdown(
+     *     'https://notion.so/My-Page-abc123',
+     *     2 // Max depth
+     *   );
+     *   console.log(result.title);    // "My Page"
+     *   console.log(result.markdown); // Converted content
+     *   console.log(result.icon);     // "📄" or URL
+     * } catch (error) {
+     *   console.error('Failed to fetch:', error.message);
+     * }
      */
     async getTitleAndMarkdown(url, maxDepth = DEFAULT_MAX_RECURSION_DEPTH) {
         const id = this.extractId(url);
@@ -32406,9 +32929,14 @@ class NotionClient {
         throw new Error(`Invalid Notion URL format: ${url}`);
     }
     /**
-     * Extracts title from Notion page object
-     * @param page Notion page response object
-     * @returns Page title or "Untitled Page" if not found
+     * Extracts the title from a Notion page object.
+     *
+     * Searches through page properties to find title-type properties,
+     * checking common property names in multiple languages.
+     *
+     * @private
+     * @param {GetPageResponse} page - Page object from Notion API
+     * @returns {string} Page title or "Untitled Page" if not found
      */
     getPageTitle(page) {
         if (!("properties" in page)) {
@@ -32425,9 +32953,14 @@ class NotionClient {
         return "Untitled Page";
     }
     /**
-     * Extracts title from Notion database object
-     * @param db Notion database response object
-     * @returns Database title or "Untitled Database" if not found
+     * Extracts the title from a Notion database object.
+     *
+     * Handles both full database responses and query results
+     * which may have different structures.
+     *
+     * @private
+     * @param {GetDatabaseResponse} database - Database object from Notion API
+     * @returns {string} Database title or "Untitled Database" if not found
      */
     getDatabaseTitle(db) {
         if (!("title" in db) || !db.title || db.title.length === 0) {
@@ -32436,12 +32969,30 @@ class NotionClient {
         return (0, markdown_converter_1.richTextArrayToMarkdown)(db.title, { type: "standard" });
     }
     /**
-     * Recursively fetches all child blocks with indentation and depth tracking
-     * @param blockId ID of the parent block
-     * @param currentLevel Current indentation level
-     * @param currentDepth Current recursion depth
-     * @param maxDepth Maximum allowed recursion depth
-     * @returns Array of augmented blocks with indentation and child page details
+     * Recursively fetches all child blocks with pagination support.
+     *
+     * This method handles:
+     * - Pagination for blocks with many children
+     * - Special handling for column_list and column blocks
+     * - Child page expansion based on depth limits
+     * - Toggle block expansion
+     * - Table and table_row relationship management
+     *
+     * @async
+     * @param {string} blockId - Parent block ID to fetch children for
+     * @param {number} [currentLevel=0] - Current indentation level for formatting
+     * @param {number} [currentDepth=0] - Current recursion depth
+     * @param {number} [maxDepth=1] - Maximum recursion depth to prevent infinite loops
+     * @returns {Promise<AugmentedBlockObjectResponse[]>} Array of blocks with metadata
+     * @throws {Error} May throw if API request fails
+     *
+     * @example
+     * const blocks = await this.getAllBlockChildren(
+     *   'page-id',
+     *   0,    // Start at level 0
+     *   1,    // Current depth 1
+     *   3     // Max depth 3
+     * );
      */
     async getAllBlockChildren(blockId, currentLevel = 0, currentDepth = DEFAULT_INITIAL_DEPTH, maxDepth = DEFAULT_MAX_RECURSION_DEPTH) {
         const allBlocks = [];
@@ -32645,7 +33196,7 @@ class NotionClient {
                             cellContent = `[${prop.type}]`;
                     }
                 }
-                cellContent = cellContent.replace(/\|/g, "\\|").replace(/n/g, "<br>");
+                cellContent = cellContent.replace(/\|/g, "\\|").replace(/\n/g, "<br>");
                 row.push(cellContent);
             }
             markdownTable += `| ${row.join(" | ")} |\\n`;
@@ -32663,50 +33214,150 @@ exports.NotionClient = NotionClient;
 
 "use strict";
 
-// Notion URL Specifications:
-// Notion URLs can take several forms:
-// 1. Standard Notion domain:
-//    - https://www.notion.so/page-title-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-//    - https://username.notion.site/page-title-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-//    - Where xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx is the 32-character page ID (UUID without hyphens).
-// 2. Custom domains (Notion Sites feature, paid plans):
-//    - https://www.yourcustomdomain.com/page-slug
-//    - The structure after the custom domain can vary.
-// 3. Workspace-specific subdomains:
-//    - https://yourworkspace.notion.site/page-title-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-// 4. URLs with or without page titles:
-//    - The page title part of the URL is optional for routing; the ID is the canonical identifier.
-//    - e.g., https://www.notion.so/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-// 5. Database URLs:
-//    - Similar to page URLs, but often include a view ID (v=yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy).
-//    - https://www.notion.so/yourworkspace/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx?v=yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
-//    - The database ID (xxxxxxxx...) can be a 32-character UUID (often without hyphens in URLs but sometimes with) or a shorter ID.
-// 6. Page/Database IDs:
-//    - Page IDs are typically 32-character hexadecimal strings (UUIDs, often presented without hyphens in URLs).
-//    - Database IDs can also be 32-character UUIDs or sometimes shorter, more opaque strings.
-//    - The API and internal linking often use UUIDs with hyphens. This extractor aims to be flexible.
+/**
+ * @fileoverview Notion URL Extractor
+ *
+ * This module provides functionality to extract and clean Notion URLs from text content.
+ * It handles various Notion URL formats including pages, databases, and custom domains.
+ *
+ * **Supported Notion URL Formats:**
+ *
+ * 1. **Standard Notion Domains:**
+ *    - `https://www.notion.so/page-title-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+ *    - `https://username.notion.site/page-title-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+ *    - Where `xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx` is the 32-character page ID (UUID without hyphens)
+ *
+ * 2. **Custom Domains** (Notion Sites feature, paid plans):
+ *    - `https://www.yourcustomdomain.com/page-slug`
+ *    - The structure after the custom domain can vary
+ *
+ * 3. **Workspace-specific Subdomains:**
+ *    - `https://yourworkspace.notion.site/page-title-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+ *
+ * 4. **URLs with or without Page Titles:**
+ *    - The page title part of the URL is optional for routing; the ID is the canonical identifier
+ *    - e.g., `https://www.notion.so/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+ *
+ * 5. **Database URLs:**
+ *    - Similar to page URLs, but often include a view ID (`v=yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy`)
+ *    - `https://www.notion.so/yourworkspace/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx?v=yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy`
+ *    - The database ID can be a 32-character UUID or sometimes shorter, more opaque strings
+ *
+ * 6. **Page/Database IDs:**
+ *    - Page IDs are typically 32-character hexadecimal strings (UUIDs, often presented without hyphens in URLs)
+ *    - Database IDs can also be 32-character UUIDs or sometimes shorter, more opaque strings
+ *    - The API and internal linking often use UUIDs with hyphens. This extractor aims to be flexible
+ *
+ * @author GitHub Action: notion-to-github-comments
+ * @version 1.0.0
+ */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.extractNotionURLs = extractNotionURLs;
-// Regex patterns organized by purpose
-// 1. HTML comment detection and removal - removes HTML comments (including multiline)
-const HTML_COMMENT_REGEX = /<!--[\s\S]*?-->/g;
-// 2. Basic URL extraction - captures any HTTP/HTTPS URL
-const ALL_URLS_REGEX = /https?:\/\/[^\s]+/gi;
-// 3. Trailing punctuation cleanup - removes common punctuation from URL end
-const TRAILING_PUNCTUATION_REGEX = /[.,;!?)]+$/;
-// 4. Query parameter detection - checks if URL has ?p= or ?page_id= with valid Notion ID
-const QUERY_PARAM_DETECTION_REGEX = /[?&](?:p|page_id)=([a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/;
-// 5. Query parameter extraction - extracts URL up to and including the Notion ID in query params
-const QUERY_PARAM_EXTRACTION_REGEX = /^(.*[?&](?:p|page_id)=[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|.*[?&](?:p|page_id)=[a-f0-9]{32})/;
-// 6. Notion ID validation - matches valid Notion IDs (32 hex chars or UUID format)
-const NOTION_ID_REGEX = /[a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/;
 /**
- * Extracts Notion URLs from text content with robust parsing
- * Handles various Notion URL formats including pages, databases, and custom domains
- * @param text Input text that may contain Notion URLs
- * @returns Array of cleaned Notion URLs found in the text
+ * Regular expression patterns for URL extraction and cleaning.
+ * Organized by purpose for maintainability and clarity.
+ */
+/**
+ * Removes HTML comments from text to avoid extracting URLs from commented content.
+ * Supports both single-line and multi-line HTML comments.
+ *
+ * @example
+ * // Matches: <!-- comment -->, <!-- multi
+ * //                             line -->
+ */
+const HTML_COMMENT_REGEX = /<!--[\s\S]*?-->/g;
+/**
+ * Captures any HTTP or HTTPS URL from text content.
+ * Uses a permissive pattern to catch URLs followed by whitespace.
+ *
+ * @example
+ * // Matches: https://example.com, http://test.org/path?query=value
+ */
+const ALL_URLS_REGEX = /https?:\/\/[^\s]+/gi;
+/**
+ * Removes common trailing punctuation that might be attached to URLs.
+ * Helps clean URLs that appear at the end of sentences.
+ *
+ * @example
+ * // Removes: ., ,, ;, !, ), ? and combinations like .)
+ */
+const TRAILING_PUNCTUATION_REGEX = /[.,;!?)]+$/;
+/**
+ * Detects if a URL contains Notion-specific query parameters with valid IDs.
+ * Checks for both ?p= and ?page_id= parameters with UUID formats.
+ *
+ * @example
+ * // Matches: ?p=abc123..., ?page_id=12345678-1234-5678-1234-567890abcdef
+ */
+const QUERY_PARAM_DETECTION_REGEX = /[?&](?:p|page_id)=([a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/;
+/**
+ * Extracts the clean URL portion up to and including valid Notion ID parameters.
+ * Prevents over-truncation of URLs with legitimate query parameters.
+ *
+ * @example
+ * // From: https://notion.so/page?p=abc123&other=value
+ * // Extracts: https://notion.so/page?p=abc123
+ */
+const QUERY_PARAM_EXTRACTION_REGEX = /^(.*[?&](?:p|page_id)=[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|.*[?&](?:p|page_id)=[a-f0-9]{32})/;
+/**
+ * Extracts and cleans Notion URLs from text content with robust parsing.
+ *
+ * This function performs comprehensive URL extraction and cleaning:
+ *
+ * **Processing Steps:**
+ * 1. **HTML Comment Removal**: Strips out HTML comments to avoid false positives
+ * 2. **URL Discovery**: Finds all HTTP/HTTPS URLs in the text
+ * 3. **Punctuation Cleaning**: Removes trailing punctuation and HTML entities
+ * 4. **Query Parameter Handling**: Preserves important Notion parameters while cleaning others
+ * 5. **Domain Filtering**: Only returns URLs from known Notion domains
+ * 6. **Deduplication**: Returns unique URLs only
+ *
+ * **Supported Formats:**
+ * - Standard Notion pages and databases
+ * - Custom Notion Sites domains
+ * - Workspace-specific subdomains
+ * - URLs with and without page titles
+ * - URLs with query parameters and view IDs
+ *
+ * **Error Handling:**
+ * - Returns empty array for null, undefined, or non-string input
+ * - Gracefully handles malformed URLs
+ * - Filters out non-Notion domains to prevent false positives
+ *
+ * @param {string} text - Input text that may contain Notion URLs (PR body, issue description, etc.)
+ * @returns {string[]} Array of cleaned and validated Notion URLs found in the text
+ *
+ * @example
+ * // Basic usage
+ * const urls = extractNotionURLs('Check out this page: https://notion.so/My-Page-abc123');
+ * // Returns: ['https://notion.so/My-Page-abc123']
+ *
+ * // Multiple URLs with cleaning
+ * const text = `
+ *   See https://workspace.notion.site/Project-def456?v=view123,
+ *   and https://notion.so/Notes-ghi789.
+ * `;
+ * const urls = extractNotionURLs(text);
+ * // Returns: [
+ * //   'https://workspace.notion.site/Project-def456?v=view123',
+ * //   'https://notion.so/Notes-ghi789'
+ * // ]
+ *
+ * // Handles HTML comments
+ * const htmlText = 'Valid: https://notion.so/page1 <!-- Ignore: https://notion.so/page2 -->';
+ * const urls = extractNotionURLs(htmlText);
+ * // Returns: ['https://notion.so/page1']
+ *
+ * // Error cases
+ * extractNotionURLs(null);        // Returns: []
+ * extractNotionURLs(undefined);   // Returns: []
+ * extractNotionURLs('');          // Returns: []
+ * extractNotionURLs('No URLs');   // Returns: []
  */
 function extractNotionURLs(text) {
+    if (!text || typeof text !== 'string') {
+        return [];
+    }
     const urls = new Set();
     let match;
     // Step 1: Remove HTML comments from text to avoid extracting URLs from them
@@ -32716,9 +33367,13 @@ function extractNotionURLs(text) {
     while ((match = ALL_URLS_REGEX.exec(textWithoutComments)) !== null) {
         if (match[0]) {
             let url = match[0];
-            // Step 3: Clean trailing punctuation
+            // Step 3: Clean trailing punctuation and HTML entities
             url = url.replace(TRAILING_PUNCTUATION_REGEX, "");
-            // Step 4: Handle query parameter URLs - truncate after Notion ID
+            // Remove common HTML entities that might be attached to URLs
+            url = url.replace(/(&quot;|&gt;|&lt;|&#39;|&amp;).*$/, "");
+            url = url.replace(/".*$/, "");
+            // Step 4: Don't truncate query parameters for non-p/page_id params
+            // Only truncate if we have ?p= or ?page_id= with a valid Notion ID
             if (QUERY_PARAM_DETECTION_REGEX.test(url)) {
                 const paramMatch = url.match(QUERY_PARAM_EXTRACTION_REGEX);
                 if (paramMatch) {
@@ -32727,8 +33382,9 @@ function extractNotionURLs(text) {
             }
             // Step 5: Filter for Notion-related URLs only
             const isNotionDomain = url.includes("notion.so") || url.includes("notion.site");
-            const hasNotionId = NOTION_ID_REGEX.test(url);
-            if (isNotionDomain || hasNotionId) {
+            // Only add URLs that have a Notion domain AND optionally a Notion ID
+            // This prevents false positives from other services that happen to have similar ID patterns
+            if (isNotionDomain) {
                 urls.add(url);
             }
         }

@@ -18,8 +18,29 @@ import {
   PageObjectResponse,
   CalloutBlockObjectResponse,
 } from "@notionhq/client/build/src/api-endpoints";
+
+// Type definitions for missing block types
+type ImageBlockObjectResponse = BlockObjectResponse & {
+  type: "image";
+  image: {
+    type: "external";
+    external?: { url: string };
+    caption: RichTextItemResponse[];
+  };
+};
+
+type TableRowBlockObjectResponse = BlockObjectResponse & {
+  type: "table_row";
+  table_row?: {
+    cells: RichTextItemResponse[][];
+  };
+};
 import type { NotionClient } from "./notion-client";
 
+/**
+ * Constants for Markdown formatting.
+ * Centralized to ensure consistency across all conversion functions.
+ */
 const MARKDOWN_CONSTANTS = {
   NEWLINE: "\n",
   INDENT: "  ",
@@ -36,6 +57,15 @@ const MARKDOWN_CONSTANTS = {
   TRIPLE_NEWLINE: "\n\n\n",
 } as const;
 
+/**
+ * Context type for determining how text should be formatted during conversion.
+ * Different contexts apply different formatting rules:
+ * - standard: Normal text with full formatting (bold, italic, links, etc.)
+ * - mermaidContent: Code content with newline preservation for Mermaid diagrams
+ * - codeBlockContent: Raw code content without any formatting
+ * - codeBlockCaption: Code block captions with basic formatting
+ * - tableCell: Table cell content with pipe escaping and <br> for newlines
+ */
 export type ConversionContext =
   | { type: "standard" }
   | { type: "mermaidContent" }
@@ -44,10 +74,28 @@ export type ConversionContext =
   | { type: "tableCell" };
 
 /**
- * Converts Notion rich text array to Markdown string with context-aware formatting
- * @param richTextArr Array of Notion rich text items
- * @param context Conversion context that determines formatting behavior
- * @returns Formatted Markdown string
+ * Converts Notion rich text array to Markdown string with context-aware formatting.
+ * 
+ * This is the core text conversion function that handles:
+ * - Text formatting (bold, italic, strikethrough, underline, code)
+ * - Links and URLs
+ * - Context-specific formatting rules
+ * - Newline handling based on context
+ * - HTML entity escaping for table cells
+ * 
+ * @param {RichTextItemResponse[]} richTextArr - Array of Notion rich text items
+ * @param {ConversionContext} context - Conversion context that determines formatting behavior
+ * @returns {string} Formatted Markdown string
+ * 
+ * @example
+ * // Standard formatting with all features
+ * const markdown = richTextArrayToMarkdown(richText, { type: "standard" });
+ * 
+ * // Table cell formatting with pipe escaping
+ * const cellContent = richTextArrayToMarkdown(richText, { type: "tableCell" });
+ * 
+ * // Raw code content without formatting
+ * const code = richTextArrayToMarkdown(richText, { type: "codeBlockContent" });
  */
 export const richTextArrayToMarkdown = (
   richTextArr: RichTextItemResponse[],
@@ -56,7 +104,7 @@ export const richTextArrayToMarkdown = (
   if (!richTextArr) return "";
   return richTextArr
     .map((item) => {
-      let text = item.plain_text;
+      let text = item.plain_text || (item as any).text?.content || "";
       let applyAnnotationsAndLinks = false;
 
       switch (context.type) {
@@ -78,21 +126,24 @@ export const richTextArrayToMarkdown = (
           break;
       }
 
-      if (applyAnnotationsAndLinks) {
-        if (item.annotations.bold) {
-          text = `**${text}**`;
-        }
-        if (item.annotations.italic) {
-          text = `_${text}_`;
-        }
-        if (item.annotations.strikethrough) {
-          text = `~~${text}~~`;
-        }
+      if (applyAnnotationsAndLinks && item.annotations) {
+        // Code annotation takes precedence over other formatting
         if (item.annotations.code) {
           text = "`" + text + "`";
-        }
-        if (item.annotations.underline) {
-          text = `<u>${text}</u>`;
+        } else {
+          // Apply other annotations only if not code
+          if (item.annotations.bold) {
+            text = `**${text}**`;
+          }
+          if (item.annotations.italic) {
+            text = `_${text}_`;
+          }
+          if (item.annotations.strikethrough) {
+            text = `~~${text}~~`;
+          }
+          if (item.annotations.underline) {
+            text = `<u>${text}</u>`;
+          }
         }
 
         if (item.href) {
@@ -105,31 +156,69 @@ export const richTextArrayToMarkdown = (
     .join("");
 };
 
+/**
+ * Details of a child page that has been expanded during conversion.
+ * Contains all necessary information to render the child page content.
+ */
 export interface ChildPageDetail {
+  /** Title of the child page */
   title: string;
+  /** Page icon (emoji or URL), if available */
   icon: string | null;
+  /** Array of blocks from the child page */
   blocks: AugmentedBlockObjectResponse[];
-  page: PageObjectResponse; // Include the full page object for properties
+  /** Full page object for accessing properties */
+  page: PageObjectResponse;
 }
 
+/**
+ * Context object passed to block conversion functions.
+ * Contains all necessary state for proper formatting and nesting.
+ */
 interface BlockConversionContext {
+  /** Indentation text for the current block */
   indentText: string;
+  /** Standard conversion context for text formatting */
   standardContext: ConversionContext;
+  /** Counters for numbered lists at different nesting levels */
   listCounters: { [level: string]: { [listType: string]: number } };
+  /** Array of toggle block indentation levels currently open */
   openToggleIndents: number[];
+  /** Optional Notion client for fetching child content */
   notionClient?: NotionClient;
 }
 
+/**
+ * Enhanced block object with additional metadata for conversion.
+ * Extends the standard Notion block response with formatting information.
+ */
 export type AugmentedBlockObjectResponse = BlockObjectResponse & {
+  /** Indentation level for nested content */
   _indentationLevel: number;
+  /** Expanded child page details, if applicable */
   child_page_details?: ChildPageDetail;
+  /** Whether this block has been expanded to show child content */
   _isExpanded?: boolean;
 };
 
 /**
- * Converts Notion page properties to Markdown table format
- * @param properties Page properties object from Notion API
- * @returns Markdown table representation of properties
+ * Converts Notion page properties to Markdown table format.
+ * 
+ * Creates a standardized table showing all page properties and their values.
+ * Handles various property types including:
+ * - Title, rich text, number, select, multi-select
+ * - Dates, people, files, checkboxes, URLs, email, phone
+ * - Formulas, relations, rollups, timestamps
+ * 
+ * @param {PageObjectResponse["properties"]} properties - Page properties object from Notion API
+ * @returns {string} Markdown table representation of properties
+ * 
+ * @example
+ * // Input: { "Status": { type: "select", select: { name: "Done" } } }
+ * // Output:
+ * // | Property | Value |
+ * // |----------|-------|
+ * // | Status   | Done  |
  */
 export const pagePropertiesToMarkdown = (
   properties: PageObjectResponse["properties"],
@@ -315,10 +404,26 @@ export const pagePropertiesToMarkdown = (
 };
 
 /**
- * Converts paragraph block to Markdown format
- * @param block Notion paragraph block
- * @param context Block conversion context with indentation and formatting options
- * @returns Markdown representation of the paragraph
+ * Converts a Notion paragraph block to Markdown format.
+ * 
+ * This function handles:
+ * - Rich text formatting within the paragraph
+ * - Empty paragraphs (preserves spacing)
+ * - Proper indentation for nested content
+ * - Special handling for paragraphs with only empty rich text items
+ * 
+ * @param {ParagraphBlockObjectResponse} block - Notion paragraph block object
+ * @param {BlockConversionContext} context - Conversion context with indentation and formatting
+ * @returns {string} Markdown representation of the paragraph with proper newlines
+ * 
+ * @example
+ * // Regular paragraph
+ * handleParagraphBlock(paragraphBlock, context)
+ * // Output: "  This is a paragraph with **bold** text\n"
+ * 
+ * // Empty paragraph
+ * handleParagraphBlock(emptyBlock, context)
+ * // Output: "  \n"
  */
 const handleParagraphBlock = (
   block: ParagraphBlockObjectResponse,
@@ -347,11 +452,26 @@ const handleParagraphBlock = (
 };
 
 /**
- * Converts heading block to Markdown format
- * @param block Notion heading block (level 1, 2, or 3)
- * @param context Block conversion context
- * @param level Heading level (1-3)
- * @returns Markdown heading with appropriate level prefix
+ * Converts a Notion heading block to Markdown format with appropriate level prefix.
+ * 
+ * Supports all three heading levels supported by Notion:
+ * - Level 1: # Heading (largest)
+ * - Level 2: ## Heading (medium)
+ * - Level 3: ### Heading (smallest)
+ * 
+ * @param {Heading1BlockObjectResponse | Heading2BlockObjectResponse | Heading3BlockObjectResponse} block - Notion heading block
+ * @param {BlockConversionContext} context - Conversion context with indentation settings
+ * @param {1 | 2 | 3} level - Heading level determining the number of # prefixes
+ * @returns {string} Markdown heading with proper level prefix and formatting
+ * 
+ * @example
+ * // Level 1 heading
+ * handleHeadingBlock(heading1Block, context, 1)
+ * // Output: "  # Main Title\n"
+ * 
+ * // Level 3 heading with formatting
+ * handleHeadingBlock(heading3Block, context, 3)
+ * // Output: "  ### **Bold** Subtitle\n"
  */
 const handleHeadingBlock = (
   block:
@@ -382,10 +502,31 @@ const handleHeadingBlock = (
 };
 
 /**
- * Converts list item block to Markdown format
- * @param block Notion list item block (bulleted or numbered)
- * @param context Block conversion context with list counters
- * @returns Markdown list item with appropriate prefix
+ * Converts a Notion list item block to Markdown format with appropriate prefix.
+ * 
+ * Handles two types of list items:
+ * - Bulleted list items: Use '* ' prefix
+ * - Numbered list items: Use '1. ', '2. ', etc. with automatic counter management
+ * 
+ * The function automatically manages numbering for nested numbered lists
+ * using the list counters from the conversion context.
+ * 
+ * @param {BulletedListItemBlockObjectResponse | NumberedListItemBlockObjectResponse} block - Notion list item block
+ * @param {BlockConversionContext} context - Context with list counters and indentation
+ * @returns {string} Markdown list item with proper prefix and formatting
+ * 
+ * @example
+ * // Bulleted list item
+ * handleListItemBlock(bulletedBlock, context)
+ * // Output: "  * This is a bullet point\n"
+ * 
+ * // Numbered list item (first item)
+ * handleListItemBlock(numberedBlock, context)
+ * // Output: "  1. This is item number one\n"
+ * 
+ * // Numbered list item (third item)
+ * handleListItemBlock(numberedBlock, context)
+ * // Output: "  3. This is the third item\n"
  */
 const handleListItemBlock = (
   block:
@@ -421,10 +562,28 @@ const handleListItemBlock = (
 };
 
 /**
- * Converts to-do block to Markdown checkbox format
- * @param block Notion to-do block
- * @param context Block conversion context
- * @returns Markdown checkbox with checked/unchecked state
+ * Converts a Notion to-do block to Markdown checkbox format.
+ * 
+ * Creates GitHub-flavored Markdown checkboxes that can be toggled
+ * in supported Markdown renderers. The checkbox state is preserved
+ * from the original Notion to-do block.
+ * 
+ * @param {ToDoBlockObjectResponse} block - Notion to-do block object
+ * @param {BlockConversionContext} context - Conversion context with indentation
+ * @returns {string} Markdown checkbox with proper state and formatting
+ * 
+ * @example
+ * // Unchecked to-do
+ * handleToDoBlock(uncheckedBlock, context)
+ * // Output: "  - [ ] This task is not done\n"
+ * 
+ * // Checked to-do
+ * handleToDoBlock(checkedBlock, context)
+ * // Output: "  - [x] This task is completed\n"
+ * 
+ * // To-do with rich text formatting
+ * handleToDoBlock(formattedBlock, context)
+ * // Output: "  - [ ] This task has **bold** text\n"
  */
 const handleToDoBlock = (
   block: ToDoBlockObjectResponse,
@@ -442,10 +601,29 @@ const handleToDoBlock = (
 };
 
 /**
- * Converts toggle block to Markdown format with HTML entity escaping
- * @param block Notion toggle block
- * @param context Block conversion context
- * @returns Markdown text with escaped HTML characters
+ * Converts a Notion toggle block to Markdown format with HTML entity escaping.
+ * 
+ * Toggle blocks in Notion allow collapsible content. Since Markdown doesn't
+ * have native toggle support, this function converts the toggle text to
+ * regular text while safely escaping any HTML characters that might
+ * interfere with Markdown rendering.
+ * 
+ * @param {ToggleBlockObjectResponse} block - Notion toggle block object
+ * @param {BlockConversionContext} context - Conversion context with indentation
+ * @returns {string} Markdown text with HTML entities escaped for safety
+ * 
+ * @example
+ * // Toggle with plain text
+ * handleToggleBlock(toggleBlock, context)
+ * // Output: "  Click to expand\n"
+ * 
+ * // Toggle with HTML characters
+ * handleToggleBlock(htmlToggleBlock, context)
+ * // Output: "  Code: &lt;div&gt;content&lt;/div&gt;\n"
+ * 
+ * // Toggle with rich text formatting
+ * handleToggleBlock(richToggleBlock, context)
+ * // Output: "  **Important** information &lt;here&gt;\n"
  */
 const handleToggleBlock = (
   block: ToggleBlockObjectResponse,
@@ -463,10 +641,43 @@ const handleToggleBlock = (
 };
 
 /**
- * Converts code block to Markdown format with language detection and Mermaid support
- * @param block Notion code block
- * @param context Block conversion context
- * @returns Markdown code block with proper fencing and language specification
+ * Converts a Notion code block to Markdown format with language detection and Mermaid support.
+ * 
+ * This function provides comprehensive code block handling:
+ * - Language detection and specification in code fence
+ * - Special handling for Mermaid diagrams (preserves newlines)
+ * - Caption support (displayed below the code block)
+ * - Proper code fencing with triple backticks
+ * - Content-specific formatting based on language type
+ * 
+ * @param {CodeBlockObjectResponse} block - Notion code block object
+ * @param {BlockConversionContext} context - Conversion context with indentation
+ * @returns {string} Markdown code block with proper fencing and language
+ * 
+ * @example
+ * // JavaScript code block
+ * handleCodeBlock(jsBlock, context)
+ * // Output:
+ * // ```javascript
+ * // console.log('Hello World');
+ * // ```
+ * 
+ * // Mermaid diagram (special newline handling)
+ * handleCodeBlock(mermaidBlock, context)
+ * // Output:
+ * // ```mermaid
+ * // graph TD
+ * //   A --> B
+ * // ```
+ * 
+ * // Code block with caption
+ * handleCodeBlock(captionedBlock, context)
+ * // Output:
+ * // ```python
+ * // print("Hello")
+ * // ```
+ * //
+ * // This is the caption text
  */
 const handleCodeBlock = (
   block: CodeBlockObjectResponse,
@@ -527,10 +738,30 @@ const handleCodeBlock = (
 };
 
 /**
- * Converts quote block to Markdown blockquote format
- * @param block Notion quote block
- * @param context Block conversion context
- * @returns Markdown blockquote with proper line prefixes
+ * Converts a Notion quote block to Markdown blockquote format.
+ * 
+ * Creates properly formatted blockquotes using the '> ' prefix.
+ * Handles multi-line quotes by prefixing each line individually,
+ * ensuring proper rendering in all Markdown parsers.
+ * 
+ * @param {QuoteBlockObjectResponse} block - Notion quote block object
+ * @param {BlockConversionContext} context - Conversion context with indentation
+ * @returns {string} Markdown blockquote with proper line prefixes
+ * 
+ * @example
+ * // Single line quote
+ * handleQuoteBlock(singleLineBlock, context)
+ * // Output: "  > This is a quote\n"
+ * 
+ * // Multi-line quote
+ * handleQuoteBlock(multiLineBlock, context)
+ * // Output:
+ * // "  > First line of quote\n"
+ * // "  > Second line of quote\n"
+ * 
+ * // Empty quote
+ * handleQuoteBlock(emptyBlock, context)
+ * // Output: "  > \n"
  */
 const handleQuoteBlock = (
   block: QuoteBlockObjectResponse,
@@ -564,10 +795,36 @@ const handleQuoteBlock = (
 };
 
 /**
- * Converts child page block to Markdown format with collapsible details
- * @param block Notion child page block
- * @param context Block conversion context
- * @returns Markdown details/summary structure or simple link
+ * Converts a Notion child page block to Markdown format with collapsible details.
+ * 
+ * This function handles child page embedding in two ways:
+ * 1. Expanded: Full content in HTML <details> collapsible section
+ * 2. Collapsed: Simple link to the child page
+ * 
+ * When expanded, includes:
+ * - Page title with icon in summary
+ * - Direct link to the Notion page
+ * - Full recursive content from the child page
+ * - Proper indentation for nested content
+ * 
+ * @param {ChildPageBlockObjectResponse} block - Notion child page block
+ * @param {BlockConversionContext} context - Conversion context with indentation and client
+ * @returns {string} HTML details structure or simple Markdown link
+ * 
+ * @example
+ * // Expanded child page
+ * handleChildPageBlock(expandedBlock, context)
+ * // Output:
+ * // <details>
+ * //   <summary>📄 Child Page Title</summary>
+ * //   <a href="https://notion.so/pageid">https://notion.so/pageid</a>
+ * //   
+ * //   [Child page content here]
+ * // </details>
+ * 
+ * // Collapsed child page
+ * handleChildPageBlock(collapsedBlock, context)
+ * // Output: "  [Child Page Title](https://notion.so/pageid)\n"
  */
 const handleChildPageBlock = (
   block: ChildPageBlockObjectResponse,
@@ -604,10 +861,19 @@ const handleChildPageBlock = (
 };
 
 /**
- * Converts child database block to Markdown link format
- * @param block Notion child database block
- * @param context Block conversion context
- * @returns Markdown link to the database
+ * Converts a Notion child database block to Markdown link format.
+ * 
+ * Child databases are embedded database views within pages.
+ * Since full database rendering can be complex, this function
+ * creates a simple link to the database for easy access.
+ * 
+ * @param {ChildDatabaseBlockObjectResponse} block - Notion child database block
+ * @param {BlockConversionContext} context - Conversion context with indentation
+ * @returns {string} Markdown link to the database with descriptive text
+ * 
+ * @example
+ * handleChildDatabaseBlock(databaseBlock, context)
+ * // Output: "  [Database: Project Tasks](https://www.notion.so/abc123)\n"
  */
 const handleChildDatabaseBlock = (
   block: ChildDatabaseBlockObjectResponse,
@@ -619,10 +885,28 @@ const handleChildDatabaseBlock = (
 };
 
 /**
- * Converts callout block to Markdown blockquote with icon
- * @param block Notion callout block
- * @param context Block conversion context
- * @returns Markdown blockquote with emoji or image icon
+ * Converts a Notion callout block to Markdown blockquote with icon.
+ * 
+ * Callout blocks are highlighted text sections with icons in Notion.
+ * This function converts them to blockquotes while preserving the icon
+ * and formatting. Supports both emoji icons and external image icons.
+ * 
+ * @param {CalloutBlockObjectResponse} block - Notion callout block object
+ * @param {BlockConversionContext} context - Conversion context with indentation
+ * @returns {string} Markdown blockquote with icon and formatted content
+ * 
+ * @example
+ * // Callout with emoji icon
+ * handleCalloutBlock(emojiCalloutBlock, context)
+ * // Output: "  > 💡 This is an important note\n"
+ * 
+ * // Callout with image icon
+ * handleCalloutBlock(imageCalloutBlock, context)
+ * // Output: "  > ![icon](https://example.com/icon.png) Warning message\n"
+ * 
+ * // Callout without icon
+ * handleCalloutBlock(plainCalloutBlock, context)
+ * // Output: "  > Important information here\n"
  */
 const handleCalloutBlock = (
   block: CalloutBlockObjectResponse,
@@ -646,10 +930,23 @@ const handleCalloutBlock = (
 };
 
 /**
- * Converts embed block to HTML iframe format
- * @param block Notion embed block
- * @param context Block conversion context
- * @returns HTML iframe element or empty string
+ * Converts a Notion embed block to HTML iframe format.
+ * 
+ * Embed blocks allow embedding external content (videos, web pages, etc.)
+ * in Notion pages. This function creates an HTML iframe to display
+ * the embedded content in Markdown environments that support HTML.
+ * 
+ * @param {EmbedBlockObjectResponse} block - Notion embed block object
+ * @param {BlockConversionContext} context - Conversion context with indentation
+ * @returns {string} HTML iframe element or empty string if no URL
+ * 
+ * @example
+ * handleEmbedBlock(embedBlock, context)
+ * // Output: "  <iframe src=\"https://example.com/video\"></iframe>\n"
+ * 
+ * // Block without URL
+ * handleEmbedBlock(emptyEmbedBlock, context)
+ * // Output: ""
  */
 const handleEmbedBlock = (
   block: EmbedBlockObjectResponse,
@@ -666,10 +963,19 @@ const handleEmbedBlock = (
 };
 
 /**
- * Converts link preview block to Markdown link format
- * @param block Notion link preview block
- * @param context Block conversion context
- * @returns Markdown link
+ * Converts a Notion link preview block to Markdown link format.
+ * 
+ * Link preview blocks show a preview card for URLs in Notion.
+ * Since Markdown doesn't support rich previews, this function
+ * converts them to simple clickable links.
+ * 
+ * @param {LinkPreviewBlockObjectResponse} block - Notion link preview block
+ * @param {BlockConversionContext} context - Conversion context with indentation
+ * @returns {string} Markdown link using the URL as both text and destination
+ * 
+ * @example
+ * handleLinkPreviewBlock(linkBlock, context)
+ * // Output: "  [https://example.com](https://example.com)\n"
  */
 const handleLinkPreviewBlock = (
   block: LinkPreviewBlockObjectResponse,
@@ -683,9 +989,18 @@ const handleLinkPreviewBlock = (
 };
 
 /**
- * Converts divider block to Markdown horizontal rule
- * @param context Block conversion context
- * @returns Markdown horizontal rule
+ * Converts a Notion divider block to Markdown horizontal rule.
+ * 
+ * Divider blocks create visual separation between content sections.
+ * This function converts them to Markdown horizontal rules using
+ * three hyphens (---) which is widely supported.
+ * 
+ * @param {BlockConversionContext} context - Conversion context with indentation
+ * @returns {string} Markdown horizontal rule with proper indentation
+ * 
+ * @example
+ * handleDividerBlock(context)
+ * // Output: "  ---\n"
  */
 const handleDividerBlock = (context: BlockConversionContext): string => {
   return (
@@ -694,12 +1009,34 @@ const handleDividerBlock = (context: BlockConversionContext): string => {
 };
 
 /**
- * Processes table blocks and converts them to Markdown table format
- * @param tableBlock Notion table block with configuration
- * @param currentBlocks Array of all blocks being processed
- * @param startIndex Starting index in the blocks array
- * @param effectiveIndentLevel Current indentation level
- * @returns Object containing table markdown and next processing index
+ * Processes a Notion table block and its rows to create Markdown table format.
+ * 
+ * This function handles the complex process of converting Notion tables:
+ * - Collects all table_row blocks that belong to the table
+ * - Handles header rows (when has_column_header is true)
+ * - Creates properly formatted Markdown table with alignment
+ * - Manages cell content conversion and escaping
+ * - Returns the next index to continue processing from
+ * 
+ * @param {AugmentedBlockObjectResponse & {type: "table"}} tableBlock - Notion table block with config
+ * @param {AugmentedBlockObjectResponse[]} currentBlocks - All blocks being processed
+ * @param {number} startIndex - Current position in the blocks array
+ * @param {number} effectiveIndentLevel - Current indentation level
+ * @returns {{tableMarkdown: string, nextIndex: number}} Table content and next processing position
+ * 
+ * @example
+ * const {tableMarkdown, nextIndex} = processTableBlocks(
+ *   tableBlock,
+ *   allBlocks,
+ *   5,
+ *   0
+ * );
+ * // tableMarkdown:
+ * // | Name | Status |
+ * // |------|--------|
+ * // | Task 1 | Done |
+ * // | Task 2 | In Progress |
+ * // nextIndex: 8
  */
 const processTableBlocks = (
   tableBlock: AugmentedBlockObjectResponse & {
@@ -792,10 +1129,27 @@ const processTableBlocks = (
 };
 
 /**
- * Adds appropriate spacing between blocks based on their types
- * @param parts Array of markdown parts being built
- * @param prevBlock Previous block in the sequence
- * @param currentBlock Current block being processed
+ * Adds appropriate spacing between blocks based on their types.
+ * 
+ * This function manages the visual spacing in the final Markdown output
+ * by determining when extra newlines are needed between different block types.
+ * List items are kept together without extra spacing, while other blocks
+ * get additional spacing for better readability.
+ * 
+ * @param {string[]} parts - Array of markdown parts being built
+ * @param {AugmentedBlockObjectResponse | null} prevBlock - Previous block in sequence
+ * @param {AugmentedBlockObjectResponse} currentBlock - Current block being processed
+ * @returns {void} Modifies the parts array in place
+ * 
+ * @example
+ * // Between heading and paragraph - adds extra space
+ * addBlockSpacing(parts, headingBlock, paragraphBlock);
+ * 
+ * // Between list items - no extra space
+ * addBlockSpacing(parts, listItemBlock, anotherListItemBlock);
+ * 
+ * // After code block - adds extra space
+ * addBlockSpacing(parts, codeBlock, paragraphBlock);
  */
 const addBlockSpacing = (
   parts: string[],
@@ -838,12 +1192,36 @@ const addBlockSpacing = (
 };
 
 /**
- * Converts a single Notion block to Markdown format
- * @param block Augmented Notion block with indentation level
- * @param listCounters Counter object for numbered lists by level
- * @param openToggleIndents Array of open toggle indentation levels
- * @param notionClient Optional Notion client for child page fetching
- * @returns Markdown representation of the block
+ * Converts a single Notion block to Markdown format.
+ * 
+ * This is the main block conversion function that handles all supported
+ * Notion block types. It manages:
+ * - Block type detection and routing to specific handlers
+ * - List counter management for numbered lists
+ * - Indentation and context propagation
+ * - Error handling for unsupported block types
+ * 
+ * Supported block types include:
+ * - Text blocks: paragraph, headings (1-3), quote
+ * - List blocks: bulleted_list_item, numbered_list_item, to_do
+ * - Media blocks: code, image, embed, link_preview
+ * - Structure blocks: toggle, divider, callout
+ * - Nested blocks: child_page, child_database, table, table_row
+ * 
+ * @param {AugmentedBlockObjectResponse} block - Block with indentation metadata
+ * @param {Object} listCounters - Counters for numbered lists by nesting level
+ * @param {number[]} openToggleIndents - Array of open toggle indentation levels
+ * @param {NotionClient} [notionClient] - Optional client for fetching child content
+ * @returns {string} Markdown representation of the block
+ * 
+ * @example
+ * const markdown = blockToMarkdown(
+ *   augmentedBlock,
+ *   { "0": { "numbered": 1 } },
+ *   [],
+ *   notionClient
+ * );
+ * // Returns: "  1. This is a numbered list item\n"
  */
 export const blockToMarkdown = (
   block: AugmentedBlockObjectResponse,
@@ -948,12 +1326,23 @@ export const blockToMarkdown = (
       );
 
     case "image":
+      const imageBlock = block as ImageBlockObjectResponse;
+      if (imageBlock.image.type === "external" && imageBlock.image.external?.url) {
+        const caption = imageBlock.image.caption.length > 0
+          ? richTextArrayToMarkdown(imageBlock.image.caption, context.standardContext)
+          : "";
+        return `${context.indentText}![${caption}](${imageBlock.image.external.url})${MARKDOWN_CONSTANTS.NEWLINE}`;
+      }
       return "";
 
     case "table":
       return "";
 
     case "table_row":
+      const tableRowBlock = block as TableRowBlockObjectResponse;
+      if (!tableRowBlock.table_row?.cells) {
+        return "";
+      }
       return "";
 
     case "synced_block":
@@ -969,12 +1358,43 @@ export const blockToMarkdown = (
 };
 
 /**
- * Converts an array of Notion blocks to complete Markdown document
- * @param blocks Array of augmented Notion blocks
- * @param page Optional page object for properties table
- * @param notionClient Optional Notion client for child page processing
- * @param initialIndentLevel Starting indentation level
- * @returns Complete Markdown document
+ * Converts an array of Notion blocks to a complete Markdown document.
+ * 
+ * This is the main entry point for converting Notion content to Markdown.
+ * It orchestrates the entire conversion process:
+ * 
+ * 1. **Page Properties**: Converts page properties to a table (if page provided)
+ * 2. **Block Processing**: Recursively processes all blocks with proper nesting
+ * 3. **Table Handling**: Special processing for table blocks and their rows
+ * 4. **Spacing Management**: Adds appropriate spacing between block types
+ * 5. **Error Handling**: Gracefully handles conversion errors
+ * 6. **Output Cleanup**: Ensures proper formatting and trailing newlines
+ * 
+ * Features:
+ * - Recursive processing with depth control
+ * - List counter management across nesting levels
+ * - Toggle block state tracking
+ * - Child page expansion support
+ * - Table row collection and formatting
+ * - Context-aware indentation
+ * 
+ * @param {AugmentedBlockObjectResponse[]} blocks - Array of blocks with indentation metadata
+ * @param {PageObjectResponse} [page] - Optional page object for properties table
+ * @param {NotionClient} [notionClient] - Optional client for child page fetching
+ * @param {number} [initialIndentLevel=0] - Starting indentation level for nested calls
+ * @returns {string} Complete Markdown document with proper formatting
+ * 
+ * @throws {Error} Logs conversion errors but returns error message instead of throwing
+ * 
+ * @example
+ * // Convert page with properties table
+ * const markdown = blocksToMarkdown(blocks, pageObject, notionClient);
+ * 
+ * // Convert child page content (nested call)
+ * const childMarkdown = blocksToMarkdown(childBlocks, null, notionClient, 1);
+ * 
+ * // Simple block conversion without extras
+ * const simpleMarkdown = blocksToMarkdown(blocks);
  */
 export function blocksToMarkdown(
   blocks: AugmentedBlockObjectResponse[],
@@ -983,6 +1403,10 @@ export function blocksToMarkdown(
   initialIndentLevel = 0,
 ): string {
   try {
+    if (!blocks || !Array.isArray(blocks)) {
+      return "";
+    }
+    
     const markdownParts: string[] = [];
     const listCounters: { [level: string]: { [listType: string]: number } } =
       {};
@@ -1092,8 +1516,9 @@ export function blocksToMarkdown(
       finalMarkdown += MARKDOWN_CONSTANTS.NEWLINE;
     }
     return finalMarkdown;
-  } catch {
+  } catch (error) {
     // Error occurred during markdown conversion
+    console.error("Error converting blocks to Markdown:", error);
     return "Error converting blocks to Markdown.";
   }
 }
