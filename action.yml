@@ -1,20 +1,20 @@
-name: 'Notion to GitHub Comments'
-description: 'Extracts Notion page/database info from GitHub PR/Issue descriptions and posts formatted Markdown content as GitHub comments'
-author: 'wasabeef'
+name: "Notion to GitHub Comments"
+description: "Extracts Notion page/database info from GitHub PR/Issue descriptions and posts formatted Markdown content as GitHub comments"
+author: "wasabeef"
 inputs:
   notion-token:
-    description: 'Notion API Integration Token'
+    description: "Notion API Integration Token"
     required: true
   github-token:
-    description: 'GitHub Token'
+    description: "GitHub Token"
     required: true
-    default: '${{ github.token }}'
+    default: "${{ github.token }}"
 outputs:
   comment-url:
-    description: 'The URL of the created or updated comment.'
+    description: "The URL of the created or updated comment."
 runs:
-  using: 'node20'
-  main: 'dist/index.js'
+  using: "node20"
+  main: "dist/index.js"
 branding:
-  icon: 'book'
-  color: 'blue'
+  icon: "book"
+  color: "blue"

@@ -9,15 +9,18 @@ This document provides comprehensive documentation for the notion-to-github-comm
 ### Core Components
 
 #### 1. Entry Point (`src/index.ts`)
+
 The main GitHub Action entry point that orchestrates the entire workflow.
 
 **Key Responsibilities:**
+
 - Extracts Notion URLs from PR descriptions using `url-extractor`
 - Fetches content via `NotionClient`
 - Posts/updates comments via `GithubClient`
 - Handles error reporting and success logging
 
 **Flow:**
+
 1. Parse GitHub Action inputs (notion-token, github-token)
 2. Extract Notion URLs from PR body
 3. Process each URL to get title and markdown content
@@ -25,9 +28,11 @@ The main GitHub Action entry point that orchestrates the entire workflow.
 5. Create or update PR comment with results
 
 #### 2. Notion Client (`src/notion-client.ts`)
+
 Handles all Notion API interactions and content retrieval.
 
 **Key Features:**
+
 - Supports both pages and databases
 - Recursive child page fetching (configurable depth)
 - Rich error handling with detailed messages
@@ -35,33 +40,40 @@ Handles all Notion API interactions and content retrieval.
 - Property extraction for database pages
 
 **Main Methods:**
+
 - `getTitleAndMarkdown(url)`: Primary interface for content extraction
 - `fetchPageContent(pageId)`: Fetches page blocks and metadata
 - `fetchDatabaseContent(databaseId)`: Fetches database structure and entries
 - `fetchChildPages(blocks)`: Recursively fetches child page content
 
 #### 3. Markdown Converter (`src/markdown-converter.ts`)
+
 Core conversion engine that transforms Notion blocks to Markdown.
 
 **Architecture Highlights:**
+
 - **Context-aware conversion**: Different processing for standard text, Mermaid diagrams, code blocks, and table cells
 - **Modular block handlers**: Separate functions for each Notion block type
 - **Constants-based formatting**: All hardcoded strings centralized in `MARKDOWN_CONSTANTS`
 - **Flattened toggle blocks**: Toggle blocks are converted to plain text (not collapsible) while child pages remain collapsible
 
 #### 4. GitHub Client (`src/github-client.ts`)
+
 Manages GitHub PR comment operations.
 
 **Key Features:**
+
 - Smart comment identification using hidden HTML markers
 - Atomic comment updates (update existing vs. create new)
 - Comment deletion when no Notion URLs found
 - Error handling for API failures
 
 #### 5. URL Extractor (`src/url-extractor.ts`)
+
 Robust URL detection and validation.
 
 **Features:**
+
 - Multiple Notion URL format support
 - HTML comment filtering (ignores commented URLs)
 - UUID and 32-character hex ID support
@@ -91,6 +103,7 @@ const blockToMarkdown = (block: AugmentedBlockObjectResponse, ...): string => {
 #### Key Handler Functions
 
 **Block Handlers:**
+
 - `handleParagraphBlock`: Processes paragraph text with rich formatting
 - `handleHeadingBlock`: Converts headings (levels 1-3) with proper Markdown syntax
 - `handleListItemBlock`: Handles both bulleted and numbered lists with proper nesting
@@ -100,6 +113,7 @@ const blockToMarkdown = (block: AugmentedBlockObjectResponse, ...): string => {
 - `handleTableProcessing`: Complex table conversion with header detection
 
 **Utility Functions:**
+
 - `processTableBlocks`: Extracted table processing logic for better maintainability
 - `addBlockSpacing`: Intelligent spacing between different block types
 - `richTextArrayToMarkdown`: Context-aware rich text processing
@@ -118,18 +132,19 @@ The converter uses different processing contexts to ensure proper formatting:
 
 All formatting strings are centralized in `MARKDOWN_CONSTANTS`:
 
-```typescript
+````typescript
 const MARKDOWN_CONSTANTS = {
-  NEWLINE: '\n',
-  INDENT: '  ',
-  DIVIDER: '---',
-  CODE_FENCE: '```',
-  BLOCKQUOTE: '> ',
+  NEWLINE: "\n",
+  INDENT: "  ",
+  DIVIDER: "---",
+  CODE_FENCE: "```",
+  BLOCKQUOTE: "> ",
   // ... other constants
 } as const;
-```
+````
 
 This approach ensures:
+
 - Consistent formatting across all conversions
 - Easy maintenance and updates
 - Clear separation of logic and presentation
@@ -158,7 +173,7 @@ The codebase implements comprehensive error handling:
 ### Hardcoded Configurations
 
 - **Child Page Recursion Depth**: 1 level (prevents excessive API calls)
-- **Supported URL Formats**: notion.so and *.notion.site domains
+- **Supported URL Formats**: notion.so and \*.notion.site domains
 - **Block Processing**: Toggle blocks flattened, child pages collapsible
 
 ### Environment Variables

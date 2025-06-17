@@ -146,7 +146,7 @@ const QUERY_PARAM_EXTRACTION_REGEX =
  * extractNotionURLs('No URLs');   // Returns: []
  */
 export function extractNotionURLs(text: string): string[] {
-  if (!text || typeof text !== 'string') {
+  if (!text || typeof text !== "string") {
     return [];
   }
 

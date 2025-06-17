@@ -41,4 +41,4 @@ When using this action:
 1. **Notion Token**: Store as a repository secret, never in plain text
 2. **Permissions**: Only grant access to necessary Notion pages/databases
 3. **Repository Access**: Ensure proper repository permissions are set
-4. **Regular Updates**: Keep the action updated to the latest version 
+4. **Regular Updates**: Keep the action updated to the latest version

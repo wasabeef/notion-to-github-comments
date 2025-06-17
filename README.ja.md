@@ -88,8 +88,8 @@ jobs:
   add-notion-comments:
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: write  # コメント投稿に必要
-      contents: read       # PR 説明文の読み取りに必要
+      pull-requests: write # コメント投稿に必要
+      contents: read # PR 説明文の読み取りに必要
     steps:
       - name: Add Notion Content to PR
         uses: wasabeef/notion-to-github-comments@v1.2.0

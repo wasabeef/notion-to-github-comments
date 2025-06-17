@@ -88,8 +88,8 @@ jobs:
   add-notion-comments:
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: write  # Required to post comments
-      contents: read       # Required to read PR descriptions
+      pull-requests: write # Required to post comments
+      contents: read # Required to read PR descriptions
     steps:
       - name: Add Notion Content to PR
         uses: wasabeef/notion-to-github-comments@v1.2.0
@@ -238,21 +238,25 @@ This project uses a streamlined workflow for different scenarios:
 #### Checking Builds on GitHub
 
 1. **For Pull Requests**:
+
    - The `build-preview.yml` workflow runs automatically
    - Download build artifacts from the Actions tab
    - A bot comment will be posted with build info and download links
 
 2. **For Feature Branches**:
+
    - Push to `develop`, `feature/*`, or `feat/*` branches
    - The `auto-build.yml` workflow will auto-commit dist/ changes
    - Or manually trigger via GitHub Actions UI
 
 3. **Download Build Artifacts**:
+
    - Go to Actions tab in GitHub
    - Click on any CI run
    - Download artifacts from the "Artifacts" section
 
 4. **Manual Integration Testing**:
+
    - Go to Actions tab → "Test Notion to PR Comments Action"
    - Click "Run workflow" button
    - Optionally specify PR number or Notion URL for testing

@@ -18,9 +18,9 @@ on:
   workflow_dispatch:
     inputs:
       action_ref:
-        description: 'Branch/tag/SHA of the action to test'
+        description: "Branch/tag/SHA of the action to test"
         required: true
-        default: 'main'
+        default: "main"
 
 jobs:
   test-dev-action:
@@ -30,7 +30,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      
+
       # Use your development branch
       - name: Test Notion to GitHub Comments
         uses: wasabeef/notion-to-github-comments@${{ github.event.inputs.action_ref }}
@@ -60,8 +60,8 @@ jobs:
 - uses: wasabeef/notion-to-github-comments@test-new-api
 
 # Stable versions
-- uses: wasabeef/notion-to-github-comments@v1.1.0  # Specific tag
-- uses: wasabeef/notion-to-github-comments@main    # Latest stable
+- uses: wasabeef/notion-to-github-comments@v1.1.0 # Specific tag
+- uses: wasabeef/notion-to-github-comments@main # Latest stable
 
 # Specific commits
 - uses: wasabeef/notion-to-github-comments@a1b2c3d4e5f6789
@@ -102,6 +102,7 @@ git push origin feat-my-awesome-feature
 ### 4. Best Practices for Development Testing
 
 #### A. Use Separate Test Repository
+
 Create a dedicated test repository to avoid polluting your main projects:
 
 ```bash
@@ -113,17 +114,19 @@ git init
 ```
 
 #### B. Use Branch Protection
+
 In your main repository using the action:
 
 ```yaml
 # .github/workflows/production.yml (protected)
-- uses: wasabeef/notion-to-github-comments@v1.1.0  # Use stable version
+- uses: wasabeef/notion-to-github-comments@v1.1.0 # Use stable version
 
-# .github/workflows/staging.yml (for testing)  
-- uses: wasabeef/notion-to-github-comments@develop  # Use latest dev
+# .github/workflows/staging.yml (for testing)
+- uses: wasabeef/notion-to-github-comments@develop # Use latest dev
 ```
 
 #### C. Environment-based Configuration
+
 ```yaml
 jobs:
   deploy:
@@ -133,7 +136,7 @@ jobs:
         environment: [staging, production]
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Use appropriate action version
         uses: wasabeef/notion-to-github-comments@${{ matrix.environment == 'production' && 'v1.1.0' || 'develop' }}
         with:
@@ -175,6 +178,7 @@ gh run download RUN_ID
 ## Debugging Failed Actions
 
 ### Check Action Logs
+
 ```bash
 # View logs for a specific workflow run
 gh run view RUN_ID --log
@@ -184,6 +188,7 @@ gh run watch RUN_ID
 ```
 
 ### Test Action Locally
+
 ```bash
 # Install act (GitHub Actions local runner)
 # macOS: brew install act

@@ -1,28 +1,28 @@
 /**
  * @fileoverview Notion API Client
- * 
+ *
  * This module provides a comprehensive client for interacting with the Notion API.
  * It handles authentication, content fetching, and conversion of Notion blocks to Markdown.
- * 
+ *
  * **Key Features:**
  * - Fetches content from both Notion pages and databases
  * - Converts Notion's block-based structure to GitHub-flavored Markdown
  * - Supports recursive fetching of child pages with depth control
  * - Handles various Notion block types including tables, lists, and toggles
  * - Preserves page hierarchy and formatting in the output
- * 
+ *
  * **Supported Content Types:**
  * - Pages with all standard block types
  * - Databases with property-based table rendering
  * - Child pages with configurable recursion depth
  * - Column layouts and nested structures
  * - Rich text formatting and links
- * 
+ *
  * **Error Handling:**
  * - Specific error messages for common API failures
  * - Graceful fallbacks for missing content
  * - Rate limiting awareness
- * 
+ *
  * @module notion-client
  * @requires @notionhq/client
  */
@@ -57,20 +57,20 @@ const DEFAULT_INITIAL_DEPTH = 0;
 
 /**
  * Client for interacting with the Notion API and converting content to Markdown.
- * 
+ *
  * This class encapsulates all Notion API interactions and provides methods
  * for fetching and converting both pages and databases to Markdown format.
- * 
+ *
  * **Authentication:**
  * Requires a Notion integration token with appropriate permissions:
  * - Read access to pages and databases
  * - Access to workspace content
- * 
+ *
  * **Usage Pattern:**
  * 1. Initialize with integration token
  * 2. Call getTitleAndMarkdown() with a Notion URL
  * 3. Receive formatted Markdown content
- * 
+ *
  * @class
  * @example
  * ```typescript
@@ -84,14 +84,14 @@ export class NotionClient {
 
   /**
    * Initializes the Notion API client with authentication.
-   * 
+   *
    * Creates an authenticated client instance using the official Notion SDK.
    * The token must be from a Notion integration with appropriate permissions.
-   * 
+   *
    * **Required Permissions:**
    * - Read content
    * - Access to target pages/databases
-   * 
+   *
    * @param {string} token - Notion integration token (starts with 'secret_')
    * @throws {Error} The Notion SDK will throw if the token is invalid
    * @constructor
@@ -102,28 +102,28 @@ export class NotionClient {
 
   /**
    * Fetches Notion content from a URL and converts it to Markdown.
-   * 
+   *
    * This is the main entry point for content retrieval. It handles both
    * pages and databases, automatically detecting the content type from the URL.
-   * 
+   *
    * **Process Flow:**
    * 1. Extracts the ID from the Notion URL
    * 2. Determines if URL points to a page or database
    * 3. Fetches content using appropriate API endpoint
    * 4. Converts blocks to Markdown format
    * 5. Recursively fetches child pages up to maxDepth
-   * 
+   *
    * **URL Formats Supported:**
    * - Pages: `https://notion.so/Page-Title-{32-char-id}`
    * - Databases: `https://notion.so/workspace/{32-char-id}?v=...`
    * - Workspace URLs: `https://workspace.notion.site/...`
-   * 
+   *
    * **Error Handling:**
    * - `object_not_found`: Page/database doesn't exist or no access
    * - `unauthorized`: Invalid token
    * - `forbidden`: Integration lacks permissions
    * - `rate_limited`: API rate limit exceeded
-   * 
+   *
    * @param {string} url - Full Notion URL to fetch content from
    * @param {number} [maxDepth=1] - Maximum depth for recursive child page fetching
    * @returns {Promise<Object>} Parsed content object
@@ -213,18 +213,18 @@ export class NotionClient {
 
   /**
    * Extracts the Notion ID from various URL formats.
-   * 
+   *
    * Notion IDs can appear in URLs in multiple formats:
    * - With hyphens: `12345678-1234-5678-1234-567890abcdef`
    * - Without hyphens: `1234567812345678123456789abcdef`
-   * 
+   *
    * This method normalizes the ID by removing hyphens for API usage.
-   * 
+   *
    * **Supported Patterns:**
    * - UUID with hyphens (8-4-4-4-12 format)
    * - 32-character hexadecimal string
    * - IDs embedded in various URL structures
-   * 
+   *
    * @param {string} url - Notion URL containing an ID
    * @returns {string} Normalized 32-character ID without hyphens
    * @throws {Error} If no valid Notion ID pattern is found in the URL
@@ -248,15 +248,15 @@ export class NotionClient {
 
   /**
    * Extracts the title from a Notion page object.
-   * 
+   *
    * Searches through all page properties to find the title property,
    * which is identified by its type. Falls back to a default if not found.
-   * 
+   *
    * **Title Resolution Order:**
    * 1. First property with type="title"
    * 2. First plain_text value from title array
    * 3. "Untitled Page" as fallback
-   * 
+   *
    * @param {GetPageResponse} page - Notion API page response object
    * @returns {string} Extracted title or "Untitled Page" if not found
    * @private
@@ -282,10 +282,10 @@ export class NotionClient {
 
   /**
    * Extracts the title from a Notion database object.
-   * 
+   *
    * Database titles are stored as rich text arrays at the root level.
    * Converts the rich text to plain Markdown for display.
-   * 
+   *
    * @param {GetDatabaseResponse} db - Notion API database response object
    * @returns {string} Database title or "Untitled Database" if not found
    * @private
@@ -299,26 +299,26 @@ export class NotionClient {
 
   /**
    * Recursively fetches all child blocks from a parent block.
-   * 
+   *
    * This method is the core of content retrieval, handling Notion's
    * hierarchical block structure with proper indentation and depth control.
-   * 
+   *
    * **Special Handling:**
    * - **Column Lists**: Fetches columns and their content separately
    * - **Tables**: Fetches table rows as children of table blocks
    * - **Child Pages**: Recursively fetches content if within depth limit
    * - **Lists & Toggles**: Increases indentation for nested items
-   * 
+   *
    * **Pagination:**
    * - Fetches up to 100 blocks per API call
    * - Automatically handles pagination for large pages
-   * 
+   *
    * **Augmentation:**
    * Each block is augmented with:
    * - `_indentationLevel`: Visual nesting level for Markdown conversion
    * - `_isExpanded`: Whether child pages were fetched
    * - `child_page_details`: Nested content for child pages
-   * 
+   *
    * @param {string} blockId - ID of the parent block to fetch children from
    * @param {number} [currentLevel=0] - Current indentation level for visual nesting
    * @param {number} [currentDepth=0] - Current recursion depth for child pages
@@ -466,10 +466,10 @@ export class NotionClient {
 
   /**
    * Converts a Notion page to Markdown format.
-   * 
+   *
    * Fetches all blocks from the page and delegates to the Markdown
    * converter for formatting. Passes page properties for context.
-   * 
+   *
    * @param {string} pageId - ID of the page to convert
    * @param {PageObjectResponse} pageObject - Page object containing properties
    * @param {number} [currentDepth=0] - Current depth in page hierarchy
@@ -495,16 +495,16 @@ export class NotionClient {
 
   /**
    * Converts a Notion database to a Markdown table.
-   * 
+   *
    * Fetches all database entries and renders them as a GitHub-flavored
    * Markdown table with proper formatting and escaping.
-   * 
+   *
    * **Process:**
    * 1. Queries all pages in the database (handles pagination)
    * 2. Extracts property names as table headers
    * 3. Converts each property value to appropriate Markdown
    * 4. Formats as aligned table with escaped special characters
-   * 
+   *
    * **Property Type Handling:**
    * - Title/Rich Text: Converted to Markdown with formatting
    * - Numbers: Displayed as-is
@@ -513,11 +513,11 @@ export class NotionClient {
    * - Checkboxes: ✅ or ⬜ emoji
    * - URLs: Markdown link format
    * - Others: Type indicator in brackets
-   * 
+   *
    * **Special Characters:**
    * - Pipe characters (|) are escaped
    * - Newlines are converted to `<br>` tags
-   * 
+   *
    * @param {string} databaseId - ID of the database to convert
    * @returns {Promise<string>} Markdown table or empty message
    * @private

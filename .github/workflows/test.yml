@@ -1,14 +1,14 @@
 name: Test Notion to PR Comments Action
 
 on:
-  workflow_dispatch:  # Manual testing only
+  workflow_dispatch: # Manual testing only
     inputs:
       pr_number:
-        description: 'PR number to test (optional)'
+        description: "PR number to test (optional)"
         required: false
         type: string
       test_url:
-        description: 'Notion URL to test (optional)'
+        description: "Notion URL to test (optional)"
         required: false
         type: string
 
@@ -36,14 +36,14 @@ jobs:
         run: bun install
 
       - name: Build action
-        run: bun run build  # Compile TypeScript
+        run: bun run build # Compile TypeScript
 
       - name: Run Notion to PR Comments Action
         id: notion-to-github-comments
         uses: ./
         with:
-          notion-token: ${{ secrets.NOTION_TOKEN }}  # Secret that needs to be manually configured
-          github-token: ${{ secrets.GITHUB_TOKEN }}  # GitHub's automatic token
+          notion-token: ${{ secrets.NOTION_TOKEN }} # Secret that needs to be manually configured
+          github-token: ${{ secrets.GITHUB_TOKEN }} # GitHub's automatic token
 
       - name: Verify action completion
         run: |
