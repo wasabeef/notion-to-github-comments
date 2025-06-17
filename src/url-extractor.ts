@@ -146,7 +146,7 @@ const QUERY_PARAM_EXTRACTION_REGEX =
  * extractNotionURLs('No URLs');   // Returns: []
  */
 export function extractNotionURLs(text: string): string[] {
-  if (!text || typeof text !== "string") {
+  if (!text || typeof text !== 'string') {
     return [];
   }
 
@@ -154,7 +154,7 @@ export function extractNotionURLs(text: string): string[] {
   let match;
 
   // Step 1: Remove HTML comments from text to avoid extracting URLs from them
-  const textWithoutComments = text.replace(HTML_COMMENT_REGEX, "");
+  const textWithoutComments = text.replace(HTML_COMMENT_REGEX, '');
 
   // Step 2: Extract all URLs from text (without comments)
   ALL_URLS_REGEX.lastIndex = 0;
@@ -164,11 +164,11 @@ export function extractNotionURLs(text: string): string[] {
       let url = match[0];
 
       // Step 3: Clean trailing punctuation and HTML entities
-      url = url.replace(TRAILING_PUNCTUATION_REGEX, "");
+      url = url.replace(TRAILING_PUNCTUATION_REGEX, '');
 
       // Remove common HTML entities that might be attached to URLs
-      url = url.replace(/(&quot;|&gt;|&lt;|&#39;|&amp;).*$/, "");
-      url = url.replace(/".*$/, "");
+      url = url.replace(/(&quot;|&gt;|&lt;|&#39;|&amp;).*$/, '');
+      url = url.replace(/".*$/, '');
 
       // Step 4: Don't truncate query parameters for non-p/page_id params
       // Only truncate if we have ?p= or ?page_id= with a valid Notion ID
@@ -181,7 +181,7 @@ export function extractNotionURLs(text: string): string[] {
 
       // Step 5: Filter for Notion-related URLs only
       const isNotionDomain =
-        url.includes("notion.so") || url.includes("notion.site");
+        url.includes('notion.so') || url.includes('notion.site');
 
       // Only add URLs that have a Notion domain
       // This prevents false positives from other services that happen to have similar ID patterns

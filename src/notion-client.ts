@@ -27,7 +27,7 @@
  * @requires @notionhq/client
  */
 
-import { Client } from "@notionhq/client";
+import { Client } from '@notionhq/client';
 import {
   BlockObjectResponse,
   ListBlockChildrenResponse,
@@ -35,12 +35,12 @@ import {
   GetPageResponse,
   GetDatabaseResponse,
   QueryDatabaseParameters,
-} from "@notionhq/client/build/src/api-endpoints";
+} from '@notionhq/client/build/src/api-endpoints';
 import {
   blocksToMarkdown,
   richTextArrayToMarkdown,
   AugmentedBlockObjectResponse,
-} from "./markdown-converter";
+} from './markdown-converter';
 
 /**
  * Default maximum recursion depth for fetching child pages.
@@ -136,7 +136,7 @@ export class NotionClient {
    */
   async getTitleAndMarkdown(
     url: string,
-    maxDepth = DEFAULT_MAX_RECURSION_DEPTH,
+    maxDepth = DEFAULT_MAX_RECURSION_DEPTH
   ): Promise<{
     title: string;
     markdown: string;
@@ -144,21 +144,21 @@ export class NotionClient {
     icon: string | null;
   }> {
     const id = this.extractId(url);
-    let title = "";
-    let markdown = "";
+    let title = '';
+    let markdown = '';
     let icon: string | null = null;
     let pageObject: PageObjectResponse | null = null;
 
     try {
-      if (url.includes("/database/")) {
+      if (url.includes('/database/')) {
         const db = await this.client.databases.retrieve({ database_id: id });
         title = this.getDatabaseTitle(db);
         markdown = await this.databaseToMarkdown(id);
-        if ("icon" in db && db.icon) {
+        if ('icon' in db && db.icon) {
           icon =
-            db.icon.type === "emoji"
+            db.icon.type === 'emoji'
               ? db.icon.emoji
-              : db.icon.type === "external" && db.icon.external
+              : db.icon.type === 'external' && db.icon.external
                 ? db.icon.external.url
                 : null;
         }
@@ -172,41 +172,41 @@ export class NotionClient {
           id,
           pageObject,
           DEFAULT_INITIAL_DEPTH,
-          maxDepth,
+          maxDepth
         );
-        if ("icon" in page && page.icon) {
+        if ('icon' in page && page.icon) {
           icon =
-            page.icon.type === "emoji"
+            page.icon.type === 'emoji'
               ? page.icon.emoji
-              : page.icon.type === "external" && page.icon.external
+              : page.icon.type === 'external' && page.icon.external
                 ? page.icon.external.url
                 : null;
         }
       }
       return { title, markdown, url, icon };
     } catch (error: any) {
-      if (error.code === "object_not_found") {
+      if (error.code === 'object_not_found') {
         throw new Error(
-          `Notion page/database not found: ${url}. Please check if the page exists and the integration has access to it.`,
+          `Notion page/database not found: ${url}. Please check if the page exists and the integration has access to it.`
         );
       }
-      if (error.code === "unauthorized") {
+      if (error.code === 'unauthorized') {
         throw new Error(
-          `Unauthorized access to Notion. Please check if your integration token is valid and has access to the page: ${url}`,
+          `Unauthorized access to Notion. Please check if your integration token is valid and has access to the page: ${url}`
         );
       }
-      if (error.code === "forbidden") {
+      if (error.code === 'forbidden') {
         throw new Error(
-          `Insufficient permissions to access Notion page: ${url}. Please ensure the integration is connected to the page's workspace.`,
+          `Insufficient permissions to access Notion page: ${url}. Please ensure the integration is connected to the page's workspace.`
         );
       }
-      if (error.code === "rate_limited") {
+      if (error.code === 'rate_limited') {
         throw new Error(
-          `Notion API rate limit exceeded. Please try again later.`,
+          `Notion API rate limit exceeded. Please try again later.`
         );
       }
       throw new Error(
-        `Failed to fetch Notion content from ${url}: ${error.message || error}`,
+        `Failed to fetch Notion content from ${url}: ${error.message || error}`
       );
     }
   }
@@ -232,10 +232,10 @@ export class NotionClient {
    */
   private extractId(url: string): string {
     let match = url.match(
-      /([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/,
+      /([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/
     );
     if (match) {
-      return match[1].replace(/-/g, "");
+      return match[1].replace(/-/g, '');
     }
 
     match = url.match(/([0-9a-fA-F]{32})/);
@@ -262,22 +262,22 @@ export class NotionClient {
    * @private
    */
   private getPageTitle(page: GetPageResponse): string {
-    if (!("properties" in page)) {
-      return "Untitled Page";
+    if (!('properties' in page)) {
+      return 'Untitled Page';
     }
     if (page.properties) {
       const titleProp = Object.values(page.properties).find(
-        (prop) => prop.type === "title",
+        (prop) => prop.type === 'title'
       );
       if (
         titleProp &&
-        titleProp.type === "title" &&
+        titleProp.type === 'title' &&
         titleProp.title.length > 0
       ) {
         return titleProp.title[0].plain_text;
       }
     }
-    return "Untitled Page";
+    return 'Untitled Page';
   }
 
   /**
@@ -291,10 +291,10 @@ export class NotionClient {
    * @private
    */
   private getDatabaseTitle(db: GetDatabaseResponse): string {
-    if (!("title" in db) || !db.title || db.title.length === 0) {
-      return "Untitled Database";
+    if (!('title' in db) || !db.title || db.title.length === 0) {
+      return 'Untitled Database';
     }
-    return richTextArrayToMarkdown(db.title as any[], { type: "standard" });
+    return richTextArrayToMarkdown(db.title as any[], { type: 'standard' });
   }
 
   /**
@@ -331,7 +331,7 @@ export class NotionClient {
     blockId: string,
     currentLevel = 0,
     currentDepth = DEFAULT_INITIAL_DEPTH,
-    maxDepth = DEFAULT_MAX_RECURSION_DEPTH,
+    maxDepth = DEFAULT_MAX_RECURSION_DEPTH
   ): Promise<AugmentedBlockObjectResponse[]> {
     const allBlocks: AugmentedBlockObjectResponse[] = [];
     let hasMore = true;
@@ -348,7 +348,7 @@ export class NotionClient {
       const fetchedBlocks = response.results as BlockObjectResponse[];
 
       for (const block of fetchedBlocks) {
-        if (!("type" in block)) {
+        if (!('type' in block)) {
           continue;
         }
 
@@ -357,21 +357,21 @@ export class NotionClient {
           _indentationLevel: currentLevel,
         } as AugmentedBlockObjectResponse;
 
-        if (block.type === "column_list" && block.has_children) {
+        if (block.type === 'column_list' && block.has_children) {
           const columnListChildren = await this.getAllBlockChildren(
             block.id,
             currentLevel,
             currentDepth,
-            maxDepth,
+            maxDepth
           );
           allBlocks.push(augmentedBlock);
           for (const columnBlock of columnListChildren) {
-            if (columnBlock.type === "column" && columnBlock.has_children) {
+            if (columnBlock.type === 'column' && columnBlock.has_children) {
               const columnContentBlocks = await this.getAllBlockChildren(
                 columnBlock.id,
                 currentLevel + 1,
                 currentDepth,
-                maxDepth,
+                maxDepth
               );
               allBlocks.push(columnBlock);
               allBlocks.push(...columnContentBlocks);
@@ -379,20 +379,20 @@ export class NotionClient {
               allBlocks.push(columnBlock);
             }
           }
-        } else if (block.type === "table" && block.has_children) {
+        } else if (block.type === 'table' && block.has_children) {
           allBlocks.push(augmentedBlock);
           const tableRows = await this.getAllBlockChildren(
             block.id,
             currentLevel + 1,
             currentDepth,
-            maxDepth,
+            maxDepth
           );
           for (const rowBlock of tableRows) {
-            if (rowBlock.type === "table_row") {
+            if (rowBlock.type === 'table_row') {
               allBlocks.push(rowBlock);
             }
           }
-        } else if (block.type === "child_page") {
+        } else if (block.type === 'child_page') {
           if (currentDepth < maxDepth) {
             try {
               const childPageId = block.id;
@@ -401,11 +401,11 @@ export class NotionClient {
               })) as PageObjectResponse;
               const childPageTitle = this.getPageTitle(childPageObject);
               let childPageIcon: string | null = null;
-              if ("icon" in childPageObject && childPageObject.icon) {
+              if ('icon' in childPageObject && childPageObject.icon) {
                 childPageIcon =
-                  childPageObject.icon.type === "emoji"
+                  childPageObject.icon.type === 'emoji'
                     ? childPageObject.icon.emoji
-                    : childPageObject.icon.type === "external" &&
+                    : childPageObject.icon.type === 'external' &&
                         childPageObject.icon.external
                       ? childPageObject.icon.external.url
                       : null;
@@ -414,7 +414,7 @@ export class NotionClient {
                 childPageId,
                 0,
                 currentDepth + 1,
-                maxDepth,
+                maxDepth
               );
               augmentedBlock.child_page_details = {
                 title: childPageTitle,
@@ -436,13 +436,13 @@ export class NotionClient {
         } else {
           allBlocks.push(augmentedBlock);
           if (block.has_children) {
-            if (block.type !== "child_database" && block.type !== "table") {
+            if (block.type !== 'child_database' && block.type !== 'table') {
               let childrenIndentLevel = currentLevel;
               if (
-                block.type === "bulleted_list_item" ||
-                block.type === "numbered_list_item" ||
-                block.type === "toggle" ||
-                block.type === "to_do"
+                block.type === 'bulleted_list_item' ||
+                block.type === 'numbered_list_item' ||
+                block.type === 'toggle' ||
+                block.type === 'to_do'
               ) {
                 childrenIndentLevel = currentLevel + 1;
               }
@@ -450,7 +450,7 @@ export class NotionClient {
                 block.id,
                 childrenIndentLevel,
                 currentDepth,
-                maxDepth,
+                maxDepth
               );
               allBlocks.push(...children);
             }
@@ -482,13 +482,13 @@ export class NotionClient {
     pageId: string,
     pageObject: PageObjectResponse,
     currentDepth = DEFAULT_INITIAL_DEPTH,
-    maxDepth = DEFAULT_MAX_RECURSION_DEPTH,
+    maxDepth = DEFAULT_MAX_RECURSION_DEPTH
   ): Promise<string> {
     const pageBlocks = await this.getAllBlockChildren(
       pageId,
       0,
       currentDepth,
-      maxDepth,
+      maxDepth
     );
     return blocksToMarkdown(pageBlocks, pageObject, this);
   }
@@ -544,7 +544,7 @@ export class NotionClient {
     }
 
     if (fetchedPages.length === 0) {
-      return "The database is empty or no items were fetched.";
+      return 'The database is empty or no items were fetched.';
     }
 
     const headers: string[] = [];
@@ -555,67 +555,67 @@ export class NotionClient {
       headers.push(propName);
     }
 
-    let markdownTable = `| ${headers.join(" | ")} |\\n`;
-    markdownTable += `| ${headers.map(() => "---").join(" | ")} |\\n`;
+    let markdownTable = `| ${headers.join(' | ')} |\\n`;
+    markdownTable += `| ${headers.map(() => '---').join(' | ')} |\\n`;
 
     for (const page of fetchedPages) {
       const row: string[] = [];
       for (const header of headers) {
         const prop = page.properties[header];
-        let cellContent = "";
+        let cellContent = '';
         if (prop) {
           switch (prop.type) {
-            case "title":
+            case 'title':
               cellContent = richTextArrayToMarkdown(prop.title as any[], {
-                type: "tableCell",
+                type: 'tableCell',
               });
               break;
-            case "rich_text":
+            case 'rich_text':
               cellContent = richTextArrayToMarkdown(prop.rich_text as any[], {
-                type: "tableCell",
+                type: 'tableCell',
               });
               break;
-            case "number":
-              cellContent = prop.number !== null ? String(prop.number) : "";
+            case 'number':
+              cellContent = prop.number !== null ? String(prop.number) : '';
               break;
-            case "select":
-              cellContent = prop.select ? prop.select.name : "";
+            case 'select':
+              cellContent = prop.select ? prop.select.name : '';
               break;
-            case "multi_select":
-              cellContent = prop.multi_select.map((s) => s.name).join(", ");
+            case 'multi_select':
+              cellContent = prop.multi_select.map((s) => s.name).join(', ');
               break;
-            case "status":
-              cellContent = prop.status ? prop.status.name : "";
+            case 'status':
+              cellContent = prop.status ? prop.status.name : '';
               break;
-            case "date":
-              cellContent = prop.date ? prop.date.start : "";
+            case 'date':
+              cellContent = prop.date ? prop.date.start : '';
               break;
-            case "checkbox":
-              cellContent = prop.checkbox ? "✅" : "⬜";
+            case 'checkbox':
+              cellContent = prop.checkbox ? '✅' : '⬜';
               break;
-            case "url":
-              cellContent = prop.url ? `[${prop.url}](${prop.url})` : "";
+            case 'url':
+              cellContent = prop.url ? `[${prop.url}](${prop.url})` : '';
               break;
-            case "email":
-              cellContent = prop.email || "";
+            case 'email':
+              cellContent = prop.email || '';
               break;
-            case "phone_number":
-              cellContent = prop.phone_number || "";
+            case 'phone_number':
+              cellContent = prop.phone_number || '';
               break;
-            case "created_time":
+            case 'created_time':
               cellContent = prop.created_time;
               break;
-            case "last_edited_time":
+            case 'last_edited_time':
               cellContent = prop.last_edited_time;
               break;
             default:
               cellContent = `[${prop.type}]`;
           }
         }
-        cellContent = cellContent.replace(/\|/g, "\\|").replace(/n/g, "<br>");
+        cellContent = cellContent.replace(/\|/g, '\\|').replace(/n/g, '<br>');
         row.push(cellContent);
       }
-      markdownTable += `| ${row.join(" | ")} |\\n`;
+      markdownTable += `| ${row.join(' | ')} |\\n`;
     }
     return markdownTable;
   }

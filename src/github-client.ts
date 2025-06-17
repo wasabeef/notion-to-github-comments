@@ -20,8 +20,8 @@
  * @requires @actions/core
  */
 
-import * as github from "@actions/github";
-import * as core from "@actions/core";
+import * as github from '@actions/github';
+import * as core from '@actions/core';
 
 /**
  * Hidden HTML comment marker used to identify comments created by this action.
@@ -29,7 +29,7 @@ import * as core from "@actions/core";
  * to update rather than creating duplicates.
  * @constant {string}
  */
-const HIDDEN_MARKER = "<!-- NOTION_TO_GITHUB_COMMENTS -->";
+const HIDDEN_MARKER = '<!-- NOTION_TO_GITHUB_COMMENTS -->';
 
 /**
  * GitHub API client for managing PR comments with Notion content.
@@ -110,8 +110,8 @@ export class GithubClient {
           body?: string | null;
           user: { login?: string | null } | null;
         }) =>
-          c.user?.login === "github-actions[bot]" &&
-          c.body?.includes(HIDDEN_MARKER),
+          c.user?.login === 'github-actions[bot]' &&
+          c.body?.includes(HIDDEN_MARKER)
       )?.id || null
     );
   }
@@ -138,7 +138,7 @@ export class GithubClient {
       owner,
       repo,
       issue_number,
-      body: body + "\n" + HIDDEN_MARKER,
+      body: body + '\n' + HIDDEN_MARKER,
     });
     return response.data.html_url;
   }
@@ -161,14 +161,14 @@ export class GithubClient {
    */
   async updateExistingComment(
     commentId: number,
-    body: string,
+    body: string
   ): Promise<string | undefined> {
     const { owner, repo } = this.context.repo;
     const response = await this.octokit.rest.issues.updateComment({
       owner,
       repo,
       comment_id: commentId,
-      body: body + "\n" + HIDDEN_MARKER,
+      body: body + '\n' + HIDDEN_MARKER,
     });
     return response.data.html_url;
   }

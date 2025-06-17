@@ -3,19 +3,19 @@ name: Create Release
 on:
   push:
     tags:
-      - "v*.*.*" # Trigger on existing tags
+      - 'v*.*.*' # Trigger on existing tags
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to release (e.g., v1.2.0)"
+        description: 'Version to release (e.g., v1.2.0)'
         required: true
         type: string
       release_notes:
-        description: "Custom release notes (optional)"
+        description: 'Custom release notes (optional)'
         required: false
         type: string
       draft:
-        description: "Create as draft release"
+        description: 'Create as draft release'
         required: false
         default: false
         type: boolean

@@ -4,11 +4,11 @@ on:
   workflow_dispatch: # Manual testing only
     inputs:
       pr_number:
-        description: "PR number to test (optional)"
+        description: 'PR number to test (optional)'
         required: false
         type: string
       test_url:
-        description: "Notion URL to test (optional)"
+        description: 'Notion URL to test (optional)'
         required: false
         type: string
 

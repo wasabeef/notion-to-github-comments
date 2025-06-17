@@ -134,11 +134,11 @@ All formatting strings are centralized in `MARKDOWN_CONSTANTS`:
 
 ````typescript
 const MARKDOWN_CONSTANTS = {
-  NEWLINE: "\n",
-  INDENT: "  ",
-  DIVIDER: "---",
-  CODE_FENCE: "```",
-  BLOCKQUOTE: "> ",
+  NEWLINE: '\n',
+  INDENT: '  ',
+  DIVIDER: '---',
+  CODE_FENCE: '```',
+  BLOCKQUOTE: '> ',
   // ... other constants
 } as const;
 ````

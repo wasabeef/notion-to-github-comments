@@ -4,10 +4,10 @@
   "description": "GitHub Action: Notion to GitHub Comments",
   "main": "dist/index.js",
   "scripts": {
-    "prepare": "npm run build",
+    "prepare": "bun run build",
     "build": "ncc build src/index.ts -o dist",
-    "build:check": "npm run build && echo '📦 Build completed. Check dist/ folder:' && ls -la dist/",
-    "build:dev": "npm run build && git add dist/ && echo '🔍 Build changes:' && git diff --cached --stat",
+    "build:check": "bun run build && echo '📦 Build completed. Check dist/ folder:' && ls -la dist/",
+    "build:dev": "bun run build && git add dist/ && echo '🔍 Build changes:' && git diff --cached --stat",
     "test": "jest",
     "lint": "eslint .",
     "format": "prettier --write ."

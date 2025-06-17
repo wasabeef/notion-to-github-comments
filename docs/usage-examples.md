@@ -18,9 +18,9 @@ on:
   workflow_dispatch:
     inputs:
       action_ref:
-        description: "Branch/tag/SHA of the action to test"
+        description: 'Branch/tag/SHA of the action to test'
         required: true
-        default: "main"
+        default: 'main'
 
 jobs:
   test-dev-action:

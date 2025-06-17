@@ -49,8 +49,8 @@ import {
   LinkPreviewBlockObjectResponse,
   PageObjectResponse,
   CalloutBlockObjectResponse,
-} from "@notionhq/client/build/src/api-endpoints";
-import type { NotionClient } from "./notion-client";
+} from '@notionhq/client/build/src/api-endpoints';
+import type { NotionClient } from './notion-client';
 
 /**
  * Markdown formatting constants used throughout the conversion process.
@@ -58,19 +58,19 @@ import type { NotionClient } from "./notion-client";
  * @constant
  */
 const MARKDOWN_CONSTANTS = {
-  NEWLINE: "\n",
-  INDENT: "  ",
-  DIVIDER: "---",
-  CODE_FENCE: "```",
-  BLOCKQUOTE: "> ",
-  LIST_BULLET: "* ",
-  LIST_HYPHEN: "- ",
-  HEADING_1: "# ",
-  HEADING_2: "## ",
-  HEADING_3: "### ",
-  BACKTICK: "`",
-  DOUBLE_NEWLINE: "\n\n",
-  TRIPLE_NEWLINE: "\n\n\n",
+  NEWLINE: '\n',
+  INDENT: '  ',
+  DIVIDER: '---',
+  CODE_FENCE: '```',
+  BLOCKQUOTE: '> ',
+  LIST_BULLET: '* ',
+  LIST_HYPHEN: '- ',
+  HEADING_1: '# ',
+  HEADING_2: '## ',
+  HEADING_3: '### ',
+  BACKTICK: '`',
+  DOUBLE_NEWLINE: '\n\n',
+  TRIPLE_NEWLINE: '\n\n\n',
 } as const;
 
 /**
@@ -88,11 +88,11 @@ const MARKDOWN_CONSTANTS = {
  * - `tableCell`: Escapes pipes and converts newlines to `<br>`
  */
 export type ConversionContext =
-  | { type: "standard" }
-  | { type: "mermaidContent" }
-  | { type: "codeBlockContent" }
-  | { type: "codeBlockCaption" }
-  | { type: "tableCell" };
+  | { type: 'standard' }
+  | { type: 'mermaidContent' }
+  | { type: 'codeBlockContent' }
+  | { type: 'codeBlockCaption' }
+  | { type: 'tableCell' };
 
 /**
  * Converts Notion rich text array to Markdown string with context-aware formatting.
@@ -139,29 +139,29 @@ export type ConversionContext =
  */
 export const richTextArrayToMarkdown = (
   richTextArr: RichTextItemResponse[],
-  context: ConversionContext,
+  context: ConversionContext
 ): string => {
-  if (!richTextArr) return "";
+  if (!richTextArr) return '';
   return richTextArr
     .map((item) => {
       let text = item.plain_text;
       let applyAnnotationsAndLinks = false;
 
       switch (context.type) {
-        case "mermaidContent":
-          text = text.replace(/\\n/g, "\n");
+        case 'mermaidContent':
+          text = text.replace(/\\n/g, '\n');
           return text;
-        case "codeBlockContent":
+        case 'codeBlockContent':
           return text;
-        case "tableCell":
-          text = text.replace(/\r\n|\r|\n/g, "<br>");
-          text = text.replace(/\\n/g, "<br>");
-          text = text.replace(/\|/g, "\\|");
+        case 'tableCell':
+          text = text.replace(/\r\n|\r|\n/g, '<br>');
+          text = text.replace(/\\n/g, '<br>');
+          text = text.replace(/\|/g, '\\|');
           applyAnnotationsAndLinks = false;
           break;
-        case "standard":
-        case "codeBlockCaption":
-          text = text.replace(/\\n/g, "  \\n");
+        case 'standard':
+        case 'codeBlockCaption':
+          text = text.replace(/\\n/g, '  \\n');
           applyAnnotationsAndLinks = true;
           break;
       }
@@ -177,20 +177,20 @@ export const richTextArrayToMarkdown = (
           text = `~~${text}~~`;
         }
         if (item.annotations.code) {
-          text = "`" + text + "`";
+          text = '`' + text + '`';
         }
         if (item.annotations.underline) {
           text = `<u>${text}</u>`;
         }
 
         if (item.href) {
-          const escapedHref = item.href.replace(/_/g, "\\\\_");
+          const escapedHref = item.href.replace(/_/g, '\\\\_');
           text = `[${text}](${escapedHref})`;
         }
       }
       return text;
     })
-    .join("");
+    .join('');
 };
 
 /**
@@ -282,141 +282,141 @@ export type AugmentedBlockObjectResponse = BlockObjectResponse & {
  * ```
  */
 export const pagePropertiesToMarkdown = (
-  properties: PageObjectResponse["properties"],
+  properties: PageObjectResponse['properties']
 ): string => {
   const markdownRows: string[] = [];
-  const tableCellContext: ConversionContext = { type: "tableCell" };
+  const tableCellContext: ConversionContext = { type: 'tableCell' };
 
-  const titleKeys = ["Name", "Title", "Page", "名前", "タイトル"]; // Japanese: "名前" = name, "タイトル" = title
+  const titleKeys = ['Name', 'Title', 'Page', '名前', 'タイトル']; // Japanese: "名前" = name, "タイトル" = title
 
   Object.entries(properties).forEach(([propName, prop]) => {
     let valueString: string | null = null;
     let valueRichText: RichTextItemResponse[] | null = null;
 
-    if (titleKeys.includes(propName) && prop.type === "title") {
-      valueString = prop.title.map((item) => item.plain_text).join("");
+    if (titleKeys.includes(propName) && prop.type === 'title') {
+      valueString = prop.title.map((item) => item.plain_text).join('');
       if (!valueString && prop.title.length > 0) {
         valueRichText = prop.title;
       }
     } else {
       switch (prop.type) {
-        case "rich_text":
+        case 'rich_text':
           valueRichText = prop.rich_text;
           break;
-        case "number":
-          valueString = prop.number !== null ? prop.number.toString() : "";
+        case 'number':
+          valueString = prop.number !== null ? prop.number.toString() : '';
           break;
-        case "select":
-          valueString = prop.select ? prop.select.name : "";
+        case 'select':
+          valueString = prop.select ? prop.select.name : '';
           break;
-        case "multi_select":
+        case 'multi_select':
           valueString = prop.multi_select
             .map((option) => option.name)
-            .join(", ");
+            .join(', ');
           break;
-        case "status":
-          valueString = prop.status ? prop.status.name : "";
+        case 'status':
+          valueString = prop.status ? prop.status.name : '';
           break;
-        case "date":
+        case 'date':
           if (prop.date) {
             valueString = prop.date.start;
             if (prop.date.end) {
               valueString += ` -> ${prop.date.end}`;
             }
           } else {
-            valueString = "";
+            valueString = '';
           }
           break;
-        case "people":
+        case 'people':
           valueString = prop.people
             .map((person) =>
-              "name" in person && person.name ? person.name : person.id,
+              'name' in person && person.name ? person.name : person.id
             )
-            .join(", ");
+            .join(', ');
           break;
-        case "files":
-          valueString = prop.files.map((file) => file.name).join(", ");
+        case 'files':
+          valueString = prop.files.map((file) => file.name).join(', ');
           break;
-        case "checkbox":
-          valueString = prop.checkbox ? "[x]" : "[ ]";
+        case 'checkbox':
+          valueString = prop.checkbox ? '[x]' : '[ ]';
           break;
-        case "url":
-          valueString = prop.url || "";
+        case 'url':
+          valueString = prop.url || '';
           break;
-        case "email":
-          valueString = prop.email || "";
+        case 'email':
+          valueString = prop.email || '';
           break;
-        case "phone_number":
-          valueString = prop.phone_number || "";
+        case 'phone_number':
+          valueString = prop.phone_number || '';
           break;
-        case "formula":
+        case 'formula':
           switch (prop.formula.type) {
-            case "string":
-              valueString = prop.formula.string || "";
+            case 'string':
+              valueString = prop.formula.string || '';
               break;
-            case "number":
+            case 'number':
               valueString =
                 prop.formula.number !== null
                   ? prop.formula.number.toString()
-                  : "";
+                  : '';
               break;
-            case "boolean":
-              valueString = prop.formula.boolean ? "true" : "false";
+            case 'boolean':
+              valueString = prop.formula.boolean ? 'true' : 'false';
               break;
-            case "date":
-              valueString = prop.formula.date ? prop.formula.date.start : "";
+            case 'date':
+              valueString = prop.formula.date ? prop.formula.date.start : '';
               break;
           }
           break;
-        case "relation":
-          valueString = prop.relation.map((rel) => rel.id).join(", ");
+        case 'relation':
+          valueString = prop.relation.map((rel) => rel.id).join(', ');
           break;
-        case "rollup":
+        case 'rollup':
           switch (prop.rollup.type) {
-            case "number":
+            case 'number':
               valueString =
                 prop.rollup.number !== null
                   ? prop.rollup.number.toString()
-                  : "";
+                  : '';
               break;
-            case "date":
-              valueString = prop.rollup.date ? prop.rollup.date.start : "";
+            case 'date':
+              valueString = prop.rollup.date ? prop.rollup.date.start : '';
               break;
-            case "array":
+            case 'array':
               valueString = `Array (${prop.rollup.array.length} items)`;
               break;
             default: {
               const rollupAsAny = prop.rollup as any;
-              valueString = `Rollup (${rollupAsAny.type || "unknown"})`;
+              valueString = `Rollup (${rollupAsAny.type || 'unknown'})`;
               break;
             }
           }
           break;
-        case "title":
+        case 'title':
           valueRichText = prop.title;
           break;
-        case "created_time":
+        case 'created_time':
           valueString = new Date(prop.created_time).toLocaleString();
           break;
-        case "created_by":
+        case 'created_by':
           valueString =
-            "name" in prop.created_by && prop.created_by.name
+            'name' in prop.created_by && prop.created_by.name
               ? prop.created_by.name
               : prop.created_by.id;
           break;
-        case "last_edited_time":
+        case 'last_edited_time':
           valueString = new Date(prop.last_edited_time).toLocaleString();
           break;
-        case "last_edited_by":
+        case 'last_edited_by':
           valueString =
-            "name" in prop.last_edited_by && prop.last_edited_by.name
+            'name' in prop.last_edited_by && prop.last_edited_by.name
               ? prop.last_edited_by.name
               : prop.last_edited_by.id;
           break;
         default:
-          if (propName === "id") {
-            valueString = (prop as any).id || "";
-          } else if (typeof (prop as any).toString === "function") {
+          if (propName === 'id') {
+            valueString = (prop as any).id || '';
+          } else if (typeof (prop as any).toString === 'function') {
             valueString = (prop as any).toString();
           } else {
             valueString = `Unsupported property type: ${(prop as any).type}`;
@@ -428,15 +428,15 @@ export const pagePropertiesToMarkdown = (
     if (valueRichText && valueRichText.length > 0) {
       finalCellValue = richTextArrayToMarkdown(valueRichText, tableCellContext);
     } else if (valueString !== null) {
-      finalCellValue = valueString.replace(/\|/g, "\\|");
+      finalCellValue = valueString.replace(/\|/g, '\\|');
     } else {
-      finalCellValue = "";
+      finalCellValue = '';
     }
 
     const cellKey = richTextArrayToMarkdown(
       [
         {
-          type: "text",
+          type: 'text',
           text: { content: propName, link: null },
           annotations: {
             bold: false,
@@ -444,24 +444,24 @@ export const pagePropertiesToMarkdown = (
             strikethrough: false,
             underline: false,
             code: false,
-            color: "default",
+            color: 'default',
           },
           plain_text: propName,
           href: null,
         },
       ],
-      tableCellContext,
+      tableCellContext
     );
     markdownRows.push(`| ${cellKey} | ${finalCellValue} |`);
   });
 
   if (markdownRows.length > 0) {
-    const header = "| Property | Value |";
-    const divider = "|---|---|";
-    const table = [header, divider, ...markdownRows].join("\n");
-    return table + "\n";
+    const header = '| Property | Value |';
+    const divider = '|---|---|';
+    const table = [header, divider, ...markdownRows].join('\n');
+    return table + '\n';
   }
-  return "";
+  return '';
 };
 
 /**
@@ -472,13 +472,13 @@ export const pagePropertiesToMarkdown = (
  */
 const handleParagraphBlock = (
   block: ParagraphBlockObjectResponse,
-  context: BlockConversionContext,
+  context: BlockConversionContext
 ): string => {
   let markdown =
     context.indentText +
     richTextArrayToMarkdown(
       block.paragraph.rich_text,
-      context.standardContext,
+      context.standardContext
     ) +
     MARKDOWN_CONSTANTS.NEWLINE;
   if (
@@ -489,7 +489,7 @@ const handleParagraphBlock = (
   } else if (
     markdown.trim() === context.indentText.trim() &&
     block.paragraph.rich_text.length > 0 &&
-    block.paragraph.rich_text.every((rt) => rt.plain_text === "")
+    block.paragraph.rich_text.every((rt) => rt.plain_text === '')
   ) {
     markdown = context.indentText + MARKDOWN_CONSTANTS.NEWLINE;
   }
@@ -509,7 +509,7 @@ const handleHeadingBlock = (
     | Heading2BlockObjectResponse
     | Heading3BlockObjectResponse,
   context: BlockConversionContext,
-  level: 1 | 2 | 3,
+  level: 1 | 2 | 3
 ): string => {
   const headingPrefix =
     level === 1
@@ -541,29 +541,29 @@ const handleListItemBlock = (
   block:
     | BulletedListItemBlockObjectResponse
     | NumberedListItemBlockObjectResponse,
-  context: BlockConversionContext,
+  context: BlockConversionContext
 ): string => {
-  if (block.type === "bulleted_list_item") {
+  if (block.type === 'bulleted_list_item') {
     const bulletedBlock = block as BulletedListItemBlockObjectResponse;
     return (
       context.indentText +
       MARKDOWN_CONSTANTS.LIST_BULLET +
       richTextArrayToMarkdown(
         bulletedBlock.bulleted_list_item.rich_text,
-        context.standardContext,
+        context.standardContext
       ) +
       MARKDOWN_CONSTANTS.NEWLINE
     );
   } else {
     const numberedBlock = block as NumberedListItemBlockObjectResponse;
     const levelKey = (block as any)._indentationLevel.toString();
-    const currentItemNumber = context.listCounters[levelKey]["numbered"];
+    const currentItemNumber = context.listCounters[levelKey]['numbered'];
     return (
       context.indentText +
       `${currentItemNumber}. ` +
       richTextArrayToMarkdown(
         numberedBlock.numbered_list_item.rich_text,
-        context.standardContext,
+        context.standardContext
       ) +
       MARKDOWN_CONSTANTS.NEWLINE
     );
@@ -578,14 +578,14 @@ const handleListItemBlock = (
  */
 const handleToDoBlock = (
   block: ToDoBlockObjectResponse,
-  context: BlockConversionContext,
+  context: BlockConversionContext
 ): string => {
-  const checked = block.to_do.checked ? "[x]" : "[ ]";
+  const checked = block.to_do.checked ? '[x]' : '[ ]';
   return (
     context.indentText +
     MARKDOWN_CONSTANTS.LIST_HYPHEN +
     checked +
-    " " +
+    ' ' +
     richTextArrayToMarkdown(block.to_do.rich_text, context.standardContext) +
     MARKDOWN_CONSTANTS.NEWLINE
   );
@@ -599,15 +599,15 @@ const handleToDoBlock = (
  */
 const handleToggleBlock = (
   block: ToggleBlockObjectResponse,
-  context: BlockConversionContext,
+  context: BlockConversionContext
 ): string => {
   const toggleText = richTextArrayToMarkdown(
     block.toggle.rich_text,
-    context.standardContext,
+    context.standardContext
   );
   return (
     context.indentText +
-    toggleText.replace(/</g, "&lt;").replace(/>/g, "&gt;") +
+    toggleText.replace(/</g, '&lt;').replace(/>/g, '&gt;') +
     MARKDOWN_CONSTANTS.NEWLINE
   );
 };
@@ -620,37 +620,37 @@ const handleToggleBlock = (
  */
 const handleCodeBlock = (
   block: CodeBlockObjectResponse,
-  context: BlockConversionContext,
+  context: BlockConversionContext
 ): string => {
   const notionLanguage = block.code.language?.toLowerCase();
-  const isMermaid = notionLanguage === "mermaid";
-  const captionContext: ConversionContext = { type: "codeBlockCaption" };
+  const isMermaid = notionLanguage === 'mermaid';
+  const captionContext: ConversionContext = { type: 'codeBlockCaption' };
   const contentContext: ConversionContext = isMermaid
-    ? { type: "mermaidContent" }
-    : { type: "codeBlockContent" };
+    ? { type: 'mermaidContent' }
+    : { type: 'codeBlockContent' };
 
   const codeContent = richTextArrayToMarkdown(
     block.code.rich_text,
-    contentContext,
+    contentContext
   );
 
-  let markdownLanguageString = "";
-  if (notionLanguage && notionLanguage !== "plain text") {
+  let markdownLanguageString = '';
+  if (notionLanguage && notionLanguage !== 'plain text') {
     markdownLanguageString = notionLanguage;
   }
 
   const captionText =
     block.code.caption && block.code.caption.length > 0
       ? richTextArrayToMarkdown(block.code.caption, captionContext)
-      : "";
+      : '';
 
-  if (codeContent.trim() === "" && !captionText.trim()) return "";
+  if (codeContent.trim() === '' && !captionText.trim()) return '';
 
   const lang = markdownLanguageString;
   const processedCodeContent = codeContent;
 
   const needsTrailingNewline = !processedCodeContent.endsWith(
-    MARKDOWN_CONSTANTS.NEWLINE,
+    MARKDOWN_CONSTANTS.NEWLINE
   );
   const codeBlockMarkdownItself =
     context.indentText +
@@ -658,7 +658,7 @@ const handleCodeBlock = (
     lang +
     MARKDOWN_CONSTANTS.NEWLINE +
     processedCodeContent +
-    (needsTrailingNewline ? MARKDOWN_CONSTANTS.NEWLINE : "") +
+    (needsTrailingNewline ? MARKDOWN_CONSTANTS.NEWLINE : '') +
     context.indentText +
     MARKDOWN_CONSTANTS.CODE_FENCE;
 
@@ -684,11 +684,11 @@ const handleCodeBlock = (
  */
 const handleQuoteBlock = (
   block: QuoteBlockObjectResponse,
-  context: BlockConversionContext,
+  context: BlockConversionContext
 ): string => {
   const content = richTextArrayToMarkdown(
     block.quote.rich_text,
-    context.standardContext,
+    context.standardContext
   );
   if (content.trim()) {
     return (
@@ -699,7 +699,7 @@ const handleQuoteBlock = (
           return (
             context.indentText +
             MARKDOWN_CONSTANTS.BLOCKQUOTE +
-            (trimmedLine || " ")
+            (trimmedLine || ' ')
           );
         })
         .join(MARKDOWN_CONSTANTS.NEWLINE) + MARKDOWN_CONSTANTS.NEWLINE
@@ -721,7 +721,7 @@ const handleQuoteBlock = (
  */
 const handleChildPageBlock = (
   block: ChildPageBlockObjectResponse,
-  context: BlockConversionContext,
+  context: BlockConversionContext
 ): string => {
   if ((block as any)._isExpanded && (block as any).child_page_details) {
     const {
@@ -730,26 +730,26 @@ const handleChildPageBlock = (
       blocks: childBlocks,
       page: childPageObject,
     } = (block as any).child_page_details;
-    let summaryIcon = icon || "📄";
-    if (icon && (icon.startsWith("http://") || icon.startsWith("https://"))) {
+    let summaryIcon = icon || '📄';
+    if (icon && (icon.startsWith('http://') || icon.startsWith('https://'))) {
       summaryIcon = `<img src="${icon}" width="16" height="16" alt="icon"> `;
     }
 
     let markdown = `${context.indentText}<details>${MARKDOWN_CONSTANTS.NEWLINE}`;
     markdown += `${context.indentText}  <summary>${summaryIcon} ${title}</summary>${MARKDOWN_CONSTANTS.NEWLINE}${MARKDOWN_CONSTANTS.NEWLINE}`;
-    markdown += `${context.indentText}  <a href="https://notion.so/${(block as any).id.replace(/-/g, "")}" target="_blank" rel="noopener noreferrer">https://notion.so/${(block as any).id.replace(/-/g, "")}</a>${MARKDOWN_CONSTANTS.NEWLINE}${MARKDOWN_CONSTANTS.NEWLINE}${MARKDOWN_CONSTANTS.NEWLINE}`;
+    markdown += `${context.indentText}  <a href="https://notion.so/${(block as any).id.replace(/-/g, '')}" target="_blank" rel="noopener noreferrer">https://notion.so/${(block as any).id.replace(/-/g, '')}</a>${MARKDOWN_CONSTANTS.NEWLINE}${MARKDOWN_CONSTANTS.NEWLINE}${MARKDOWN_CONSTANTS.NEWLINE}`;
 
     const childContent = blocksToMarkdown(
       childBlocks,
       childPageObject,
       context.notionClient,
-      (block as any)._indentationLevel + 1 + context.openToggleIndents.length,
+      (block as any)._indentationLevel + 1 + context.openToggleIndents.length
     );
     markdown += childContent;
     markdown += `${context.indentText}</details>${MARKDOWN_CONSTANTS.NEWLINE}${MARKDOWN_CONSTANTS.NEWLINE}`;
     return markdown;
   } else {
-    return `${context.indentText}[${block.child_page.title}](https://notion.so/${(block as any).id.replace(/-/g, "")})${MARKDOWN_CONSTANTS.NEWLINE}`;
+    return `${context.indentText}[${block.child_page.title}](https://notion.so/${(block as any).id.replace(/-/g, '')})${MARKDOWN_CONSTANTS.NEWLINE}`;
   }
 };
 
@@ -761,10 +761,10 @@ const handleChildPageBlock = (
  */
 const handleChildDatabaseBlock = (
   block: ChildDatabaseBlockObjectResponse,
-  context: BlockConversionContext,
+  context: BlockConversionContext
 ): string => {
   const title = block.child_database.title;
-  const dbId = (block as any).id.replace(/-/g, "");
+  const dbId = (block as any).id.replace(/-/g, '');
   return `${context.indentText}[Database: ${title}](https://www.notion.so/${dbId})`;
 };
 
@@ -776,14 +776,14 @@ const handleChildDatabaseBlock = (
  */
 const handleCalloutBlock = (
   block: CalloutBlockObjectResponse,
-  context: BlockConversionContext,
+  context: BlockConversionContext
 ): string => {
   let markdown = context.indentText + MARKDOWN_CONSTANTS.BLOCKQUOTE;
   if (block.callout.icon) {
-    if (block.callout.icon.type === "emoji") {
-      markdown += block.callout.icon.emoji + " ";
+    if (block.callout.icon.type === 'emoji') {
+      markdown += block.callout.icon.emoji + ' ';
     } else if (
-      block.callout.icon.type === "external" &&
+      block.callout.icon.type === 'external' &&
       block.callout.icon.external
     ) {
       markdown += `![icon](${block.callout.icon.external.url}) `;
@@ -803,7 +803,7 @@ const handleCalloutBlock = (
  */
 const handleEmbedBlock = (
   block: EmbedBlockObjectResponse,
-  context: BlockConversionContext,
+  context: BlockConversionContext
 ): string => {
   if (block.embed.url) {
     return (
@@ -812,7 +812,7 @@ const handleEmbedBlock = (
       MARKDOWN_CONSTANTS.NEWLINE
     );
   }
-  return "";
+  return '';
 };
 
 /**
@@ -823,7 +823,7 @@ const handleEmbedBlock = (
  */
 const handleLinkPreviewBlock = (
   block: LinkPreviewBlockObjectResponse,
-  context: BlockConversionContext,
+  context: BlockConversionContext
 ): string => {
   return (
     context.indentText +
@@ -853,7 +853,7 @@ const handleDividerBlock = (context: BlockConversionContext): string => {
  */
 const processTableBlocks = (
   tableBlock: AugmentedBlockObjectResponse & {
-    type: "table";
+    type: 'table';
     table: {
       has_column_header: boolean;
       table_width: number;
@@ -862,7 +862,7 @@ const processTableBlocks = (
   },
   currentBlocks: AugmentedBlockObjectResponse[],
   startIndex: number,
-  effectiveIndentLevel: number,
+  effectiveIndentLevel: number
 ): { tableMarkdown: string; nextIndex: number } => {
   const tableRows: AugmentedBlockObjectResponse[] = [];
   let j = startIndex + 1;
@@ -871,7 +871,7 @@ const processTableBlocks = (
 
   while (
     j < currentBlocks.length &&
-    currentBlocks[j].type === "table_row" &&
+    currentBlocks[j].type === 'table_row' &&
     currentBlocks[j]._indentationLevel >= tableBlock._indentationLevel
   ) {
     if (
@@ -891,7 +891,7 @@ const processTableBlocks = (
   }
 
   if (tableRows.length === 0) {
-    return { tableMarkdown: "", nextIndex: startIndex };
+    return { tableMarkdown: '', nextIndex: startIndex };
   }
 
   const tableMarkdownParts: string[] = [];
@@ -908,31 +908,31 @@ const processTableBlocks = (
   if (headerRow && numCols > 0) {
     const headerCells = (headerRow as any).table_row.cells.map(
       (cell: RichTextItemResponse[][]) =>
-        richTextArrayToMarkdown(cell.flat(), { type: "tableCell" }).trim(),
+        richTextArrayToMarkdown(cell.flat(), { type: 'tableCell' }).trim()
     );
     tableMarkdownParts.push(
-      tableIndentText + "| " + headerCells.join(" | ") + " |",
+      tableIndentText + '| ' + headerCells.join(' | ') + ' |'
     );
     tableMarkdownParts.push(
       tableIndentText +
-        "| " +
-        Array(numCols).fill("--------").join(" | ") +
-        " |",
+        '| ' +
+        Array(numCols).fill('--------').join(' | ') +
+        ' |'
     );
   }
 
   for (const row of dataRows) {
     const cells = (row as any).table_row.cells.map(
       (cell: RichTextItemResponse[][]) =>
-        richTextArrayToMarkdown(cell.flat(), { type: "tableCell" }).trim(),
+        richTextArrayToMarkdown(cell.flat(), { type: 'tableCell' }).trim()
     );
     const currentRowCols = cells.length;
     if (currentRowCols < numCols) {
-      for (let k = 0; k < numCols - currentRowCols; k++) cells.push("");
+      for (let k = 0; k < numCols - currentRowCols; k++) cells.push('');
     } else if (currentRowCols > numCols && numCols > 0) {
       cells.splice(numCols);
     }
-    tableMarkdownParts.push(tableIndentText + "| " + cells.join(" | ") + " |");
+    tableMarkdownParts.push(tableIndentText + '| ' + cells.join(' | ') + ' |');
   }
 
   const tableMarkdown =
@@ -950,7 +950,7 @@ const processTableBlocks = (
 const addBlockSpacing = (
   parts: string[],
   prevBlock: AugmentedBlockObjectResponse | null,
-  currentBlock: AugmentedBlockObjectResponse,
+  currentBlock: AugmentedBlockObjectResponse
 ): void => {
   if (parts.length === 0 || !prevBlock) return;
 
@@ -960,12 +960,12 @@ const addBlockSpacing = (
   let needsExtraNewline = true;
 
   if (
-    (prevType === "bulleted_list_item" ||
-      prevType === "numbered_list_item" ||
-      prevType === "to_do") &&
-    (currentType === "bulleted_list_item" ||
-      currentType === "numbered_list_item" ||
-      currentType === "to_do")
+    (prevType === 'bulleted_list_item' ||
+      prevType === 'numbered_list_item' ||
+      prevType === 'to_do') &&
+    (currentType === 'bulleted_list_item' ||
+      currentType === 'numbered_list_item' ||
+      currentType === 'to_do')
   ) {
     needsExtraNewline = false;
   }
@@ -975,7 +975,7 @@ const addBlockSpacing = (
       parts.length > 0 &&
       !parts[parts.length - 1].endsWith(MARKDOWN_CONSTANTS.DOUBLE_NEWLINE) &&
       !parts[parts.length - 1].endsWith(
-        "</summary>" + MARKDOWN_CONSTANTS.NEWLINE,
+        '</summary>' + MARKDOWN_CONSTANTS.NEWLINE
       )
     ) {
       if (parts[parts.length - 1].endsWith(MARKDOWN_CONSTANTS.NEWLINE)) {
@@ -1029,10 +1029,10 @@ export const blockToMarkdown = (
   block: AugmentedBlockObjectResponse,
   listCounters: { [level: string]: { [listType: string]: number } },
   openToggleIndents: number[],
-  notionClient?: NotionClient,
+  notionClient?: NotionClient
 ): string => {
   const indentText = MARKDOWN_CONSTANTS.INDENT.repeat(block._indentationLevel);
-  const standardContext: ConversionContext = { type: "standard" };
+  const standardContext: ConversionContext = { type: 'standard' };
 
   const context: BlockConversionContext = {
     indentText,
@@ -1042,9 +1042,9 @@ export const blockToMarkdown = (
     notionClient,
   };
 
-  if (block.type === "numbered_list_item") {
+  if (block.type === 'numbered_list_item') {
     const levelKey = block._indentationLevel.toString();
-    const listType = "numbered";
+    const listType = 'numbered';
     if (!listCounters[levelKey] || !listCounters[levelKey][listType]) {
       if (!listCounters[levelKey]) listCounters[levelKey] = {};
       listCounters[levelKey][listType] = 1;
@@ -1054,94 +1054,94 @@ export const blockToMarkdown = (
   }
 
   switch (block.type) {
-    case "paragraph":
+    case 'paragraph':
       return handleParagraphBlock(
         block as ParagraphBlockObjectResponse,
-        context,
+        context
       );
 
-    case "heading_1":
+    case 'heading_1':
       return handleHeadingBlock(
         block as Heading1BlockObjectResponse,
         context,
-        1,
+        1
       );
-    case "heading_2":
+    case 'heading_2':
       return handleHeadingBlock(
         block as Heading2BlockObjectResponse,
         context,
-        2,
+        2
       );
-    case "heading_3":
+    case 'heading_3':
       return handleHeadingBlock(
         block as Heading3BlockObjectResponse,
         context,
-        3,
+        3
       );
 
-    case "bulleted_list_item":
-    case "numbered_list_item":
+    case 'bulleted_list_item':
+    case 'numbered_list_item':
       return handleListItemBlock(
         block as
           | BulletedListItemBlockObjectResponse
           | NumberedListItemBlockObjectResponse,
-        context,
+        context
       );
 
-    case "to_do":
+    case 'to_do':
       return handleToDoBlock(block as ToDoBlockObjectResponse, context);
 
-    case "code":
+    case 'code':
       return handleCodeBlock(block as CodeBlockObjectResponse, context);
 
-    case "quote":
+    case 'quote':
       return handleQuoteBlock(block as QuoteBlockObjectResponse, context);
 
-    case "toggle":
+    case 'toggle':
       return handleToggleBlock(block as ToggleBlockObjectResponse, context);
 
-    case "child_page":
+    case 'child_page':
       return handleChildPageBlock(
         block as ChildPageBlockObjectResponse,
-        context,
+        context
       );
 
-    case "child_database":
+    case 'child_database':
       return handleChildDatabaseBlock(
         block as ChildDatabaseBlockObjectResponse,
-        context,
+        context
       );
 
-    case "embed":
+    case 'embed':
       return handleEmbedBlock(block as EmbedBlockObjectResponse, context);
 
-    case "callout":
+    case 'callout':
       return handleCalloutBlock(block as CalloutBlockObjectResponse, context);
 
-    case "divider":
+    case 'divider':
       return handleDividerBlock(context);
 
-    case "link_preview":
+    case 'link_preview':
       return handleLinkPreviewBlock(
         block as LinkPreviewBlockObjectResponse,
-        context,
+        context
       );
 
-    case "image":
-      return "";
+    case 'image':
+      return '';
 
-    case "table":
-      return "";
+    case 'table':
+      return '';
 
-    case "table_row":
-      return "";
+    case 'table_row':
+      return '';
 
-    case "synced_block":
+    case 'synced_block':
       return `${context.indentText}[Unsupported Block Type: ${block.type}, ID: ${block.id}]${MARKDOWN_CONSTANTS.NEWLINE}`;
 
     default: {
       const unknownBlock = block as any;
-      const type = unknownBlock.type || "unknown";
+      const type = unknownBlock.type || 'unknown';
       // Note: Unexpected block type encountered
       return `${context.indentText}[Unexpected Block Type: ${type}, ID: ${block.id}]${MARKDOWN_CONSTANTS.NEWLINE}`;
     }
@@ -1191,7 +1191,7 @@ export function blocksToMarkdown(
   blocks: AugmentedBlockObjectResponse[],
   page?: PageObjectResponse,
   notionClient?: NotionClient,
-  initialIndentLevel = 0,
+  initialIndentLevel = 0
 ): string {
   try {
     const markdownParts: string[] = [];
@@ -1211,7 +1211,7 @@ export function blocksToMarkdown(
       currentBlocks: AugmentedBlockObjectResponse[],
       currentIndentOffset: number,
       counters: { [level: string]: { [listType: string]: number } },
-      toggleIndents: number[],
+      toggleIndents: number[]
     ): string {
       const parts: string[] = [];
       let prevBlockForRecursive: AugmentedBlockObjectResponse | null = null;
@@ -1228,18 +1228,18 @@ export function blocksToMarkdown(
 
         addBlockSpacing(parts, prevBlockForRecursive, tempAugmentedBlock);
 
-        if (currType !== "numbered_list_item") {
+        if (currType !== 'numbered_list_item') {
           if (
             counters[effectiveIndentLevel.toString()] &&
-            counters[effectiveIndentLevel.toString()]["numbered"]
+            counters[effectiveIndentLevel.toString()]['numbered']
           ) {
-            counters[effectiveIndentLevel.toString()]["numbered"] = 0;
+            counters[effectiveIndentLevel.toString()]['numbered'] = 0;
           }
         }
 
-        if (block.type === "table") {
+        if (block.type === 'table') {
           const tableBlock = block as AugmentedBlockObjectResponse & {
-            type: "table";
+            type: 'table';
             table: {
               has_column_header: boolean;
               table_width: number;
@@ -1250,7 +1250,7 @@ export function blocksToMarkdown(
             tableBlock,
             currentBlocks,
             i,
-            effectiveIndentLevel,
+            effectiveIndentLevel
           );
 
           if (tableMarkdown) {
@@ -1265,7 +1265,7 @@ export function blocksToMarkdown(
           tempAugmentedBlock,
           counters,
           toggleIndents,
-          notionClient,
+          notionClient
         );
 
         if (blockContent) {
@@ -1274,7 +1274,7 @@ export function blocksToMarkdown(
         prevBlockForRecursive = tempAugmentedBlock;
       }
 
-      let result = "";
+      let result = '';
       for (let k = 0; k < parts.length; k++) {
         result += parts[k];
       }
@@ -1282,7 +1282,7 @@ export function blocksToMarkdown(
         while (result.endsWith(MARKDOWN_CONSTANTS.DOUBLE_NEWLINE)) {
           result = result.substring(
             0,
-            result.length - MARKDOWN_CONSTANTS.NEWLINE.length,
+            result.length - MARKDOWN_CONSTANTS.NEWLINE.length
           );
         }
       }
@@ -1294,17 +1294,17 @@ export function blocksToMarkdown(
         blocks,
         initialIndentLevel,
         listCounters,
-        openToggleIndents,
-      ),
+        openToggleIndents
+      )
     );
 
-    let finalMarkdown = markdownParts.join("").trimEnd();
+    let finalMarkdown = markdownParts.join('').trimEnd();
     if (finalMarkdown) {
       finalMarkdown += MARKDOWN_CONSTANTS.NEWLINE;
     }
     return finalMarkdown;
   } catch {
     // Error occurred during markdown conversion
-    return "Error converting blocks to Markdown.";
+    return 'Error converting blocks to Markdown.';
   }
 }

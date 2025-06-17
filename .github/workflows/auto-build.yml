@@ -4,26 +4,26 @@ on:
   push:
     branches:
       - develop
-      - "feat-**"
-      - "feat/**"
-      - "feature-**"
-      - "feature/**"
-      - "fix-**"
-      - "fix/**"
-      - "refactor-**"
-      - "refactor/**"
-      - "chore-**"
-      - "chore/**"
-      - "docs-**"
-      - "docs/**"
-      - "test-**"
-      - "test/**"
+      - 'feat-**'
+      - 'feat/**'
+      - 'feature-**'
+      - 'feature/**'
+      - 'fix-**'
+      - 'fix/**'
+      - 'refactor-**'
+      - 'refactor/**'
+      - 'chore-**'
+      - 'chore/**'
+      - 'docs-**'
+      - 'docs/**'
+      - 'test-**'
+      - 'test/**'
   workflow_dispatch:
     inputs:
       force_build:
-        description: "Force build dist/ files"
+        description: 'Force build dist/ files'
         required: false
-        default: "false"
+        default: 'false'
 
 jobs:
   auto-build:
