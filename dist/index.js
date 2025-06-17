@@ -33300,7 +33300,7 @@ const QUERY_PARAM_EXTRACTION_REGEX = /^(.*[?&](?:p|page_id)=[a-f0-9]{8}-[a-f0-9]
  * extractNotionURLs('No URLs');   // Returns: []
  */
 function extractNotionURLs(text) {
-    if (!text || typeof text !== 'string') {
+    if (!text || typeof text !== "string") {
         return [];
     }
     const urls = new Set();
